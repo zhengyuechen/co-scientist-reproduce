@@ -13,3 +13,11 @@ def test_parse_label_picks_value_and_lowercases():
 
 def test_parse_label_takes_last_occurrence():
     assert parse_label("safety: safe\n...\nsafety: unsafe", "safety") == "unsafe"
+
+def test_parse_label_respects_word_boundary():
+    # "safety" must NOT match inside "biosafety"
+    assert parse_label("biosafety: unsafe", "safety") is None
+    # but a real safety line still parses
+    assert parse_label("biosafety concerns\nsafety: safe", "safety") == "safe"
+    # multi-word labels still work after the \b change
+    assert parse_label("conclusion\nbetter idea: 1", "better idea", "better hypothesis") == "1"
