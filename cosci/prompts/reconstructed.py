@@ -15,6 +15,7 @@ placeholder. Any structured/JSON output is described in words.
 """
 
 # RECONSTRUCTED — not from SM. Methods intent: Generate a hypothesis by identifying testable intermediate assumptions via conditional reasoning hops, then aggregating.
+# Recreates: Methods "iterative assumptions identification" Generation strategy (Methods p.25). No prompt published in SN9.
 GEN_ITERATIVE_ASSUMPTIONS = """You are an expert tasked with formulating a novel and robust hypothesis by reasoning through a chain of testable intermediate assumptions.
 Rather than proposing a final answer directly, build toward it through a sequence of conditional reasoning hops, then aggregate the surviving assumptions into a single coherent hypothesis.
 This description is intended for an audience of domain experts.
@@ -37,6 +38,7 @@ Instructions:
 Proposed hypothesis (detailed description for domain experts, with its supporting chain of assumptions):"""
 
 # RECONSTRUCTED — not from SM. Methods intent: Propose hypotheses in under-explored areas, informed by existing hypotheses + meta-review overview.
+# Recreates: Methods "research expansion" Generation strategy (Methods p.25). No prompt published in SN9.
 GEN_RESEARCH_EXPANSION = """You are an expert tasked with proposing novel hypotheses that expand into under-explored regions of the research space for the following objective.
 You are given an overview of the research directions already pursued by the system. Your task is to deliberately move beyond them, proposing hypotheses that open promising but neglected avenues rather than restating established ones.
 This description is intended for an audience of domain experts.
@@ -58,6 +60,7 @@ Instructions:
 Proposed hypothesis (detailed description for domain experts, situated relative to the existing research overview):"""
 
 # RECONSTRUCTED — not from SM. Methods intent: Fast tool-free review: correctness, quality, novelty, safety; flag clearly-flawed/unsafe for discard.
+# Recreates: Methods "initial review" (no external tools, fast discard; Methods pp.26-27). No prompt published in SN9.
 REFLECT_INITIAL = """You are an expert in scientific hypothesis evaluation performing a rapid initial review without consulting any external tools or literature.
 Your task is to judge, using only your own expert knowledge, whether the hypothesis is worth advancing or should be discarded as clearly flawed or unsafe.
 
@@ -76,6 +79,7 @@ Instructions:
 Respond with concise reasoning for each criterion, then conclude with "decision: <discard or proceed>" and a brief reason."""
 
 # RECONSTRUCTED — not from SM. Methods intent: Full review with literature grounding: novelty + correctness, return assessments + a safety verdict + references.
+# Recreates: Methods "full review" w/ web-search grounding (Methods pp.26-27); SN8 ReviewHypothesis one-liner; SN10.5 example output. No prompt published in SN9.
 REFLECT_FULL = """You are an expert in scientific hypothesis evaluation performing a full, literature-grounded review.
 Your task is to evaluate the hypothesis for novelty and correctness, supporting your judgments with the provided literature, and to render a safety verdict.
 
@@ -97,6 +101,7 @@ Instructions:
 Provide your novelty and correctness assessments with supporting references, then conclude with "safety: <safe or unsafe>" and a brief reason."""
 
 # RECONSTRUCTED — not from SM. Methods intent: Decompose hypothesis into core + sub-assumptions, evaluate each independently for plausibility.
+# Recreates: Methods "deep verification review" (Methods pp.26-27); SN8 ReviewHypothesis "break down into core assumptions" one-liner; SN10.6/10.7 examples. No prompt published in SN9.
 REFLECT_DEEP_VERIFICATION = """You are an expert in scientific hypothesis evaluation performing a deep verification review.
 Your task is to decompose the hypothesis into its core assumption and its constituent sub-assumptions, then evaluate the plausibility of each one independently, so that a flaw in any single assumption can be localized.
 
@@ -113,6 +118,7 @@ Instructions:
 Provide your per-assumption analysis, then conclude with "verification: <verified, uncertain, or invalidated>" and a brief reason."""
 
 # RECONSTRUCTED — not from SM. Methods intent: Step-wise simulate the hypothesis's mechanism/experiment to surface failure modes.
+# Recreates: Methods "simulation review" (Methods pp.26-27). No prompt published in SN9.
 REFLECT_SIMULATION = """You are an expert in scientific hypothesis evaluation performing a review by simulation.
 Your task is to mentally simulate, step by step, the mechanism or experiment implied by the hypothesis, in order to surface the points at which it is most likely to fail.
 
@@ -129,6 +135,7 @@ Instructions:
 Provide your step-by-step simulation and identified failure modes, then conclude with "simulation: <robust, fragile, or fails>" and a brief reason."""
 
 # RECONSTRUCTED — not from SM. Methods intent: Re-review adapting to tournament results + meta-review feedback.
+# Recreates: Methods "recurrent/tournament review" — adapts reviews using tournament results + meta-review feedback (Methods pp.26-27). No prompt published in SN9.
 REFLECT_RECURRENT = """You are an expert in scientific hypothesis evaluation performing a recurrent re-review of a hypothesis that has already been through earlier review and tournament rounds.
 Your task is to update your assessment in light of how the hypothesis has fared in the tournament and of the meta-review feedback gathered across the system.
 
@@ -147,6 +154,7 @@ Instructions:
 Provide your updated review, then conclude with "assessment: <improved, unchanged, or weakened>" and a brief reason."""
 
 # RECONSTRUCTED — not from SM. Methods intent: Combine the best parts of two top hypotheses into a stronger one.
+# Recreates: SN8 EvolveTopHypotheses "Combine the best parts of [H1] and [H2] into a new, stronger hypothesis"; Methods "combination" Evolution strategy (p.27).
 EVO_COMBINE = """You are an expert researcher tasked with combining the strongest elements of two top-performing hypotheses into a single, stronger hypothesis.
 Your task is not to simply concatenate them, but to synthesize their best parts into a coherent whole that retains novelty, logical consistency, and specificity.
 
@@ -168,6 +176,7 @@ Instructions:
 Response:"""
 
 # RECONSTRUCTED — not from SM. Methods intent: Refine a hypothesis to be simpler and more testable.
+# Recreates: SN8 EvolveTopHypotheses "Refine [H3] to make it simpler and more testable"; Methods "simplification" Evolution strategy (p.27).
 EVO_SIMPLIFY = """You are an expert in scientific research tasked with refining a hypothesis to make it simpler and more directly testable, while preserving its novelty and explanatory power.
 
 Goal: {goal}
@@ -188,6 +197,7 @@ Original hypothesis:
 Response:"""
 
 # RECONSTRUCTED — not from SM. Methods intent: Strengthen a hypothesis by grounding it in retrieved literature.
+# Recreates: Methods "enhancement through grounding" Evolution strategy (p.27). No prompt published in SN9.
 EVO_GROUNDING = """You are an expert in scientific research tasked with strengthening a hypothesis by grounding it in the retrieved literature, enhancing its support and specificity while preserving its novelty and logical coherence.
 
 Goal: {goal}
@@ -211,6 +221,7 @@ Literature review and analytical rationale (chronologically ordered, beginning w
 Response:"""
 
 # RECONSTRUCTED — not from SM. Methods intent: Generate a new hypothesis inspired by (not copied from) existing ones.
+# Recreates: Methods "inspiration from existing hypotheses" Evolution strategy (p.27); close cousin of the verbatim EVO_OUT_OF_BOX (SN9.4 #2).
 EVO_INSPIRATION = """You are an expert researcher tasked with generating a novel, singular hypothesis inspired by analogous elements drawn from existing hypotheses.
 The new hypothesis should be inspired by, not copied from, the provided ideas. Think out-of-the-box.
 
@@ -231,6 +242,7 @@ Inspiration may be drawn from the following hypotheses (utilize analogy and insp
 Response:"""
 
 # RECONSTRUCTED — not from SM. Methods intent: Synthesize top hypotheses into a coherent research overview: directions + justifications.
+# Recreates: SN8 GenerateFinalResearchOverview "Synthesize these top-ranked hypotheses into a single, coherent research overview"; Methods Meta-review "research overview".
 META_RESEARCH_OVERVIEW = """You are an expert in scientific research and synthesis.
 Your task is to synthesize the top-ranked hypotheses into a coherent research overview that organizes them into distinct research directions and justifies each.
 
@@ -251,6 +263,7 @@ Produce a structured research overview covering the research directions, their s
 Response:"""
 
 # RECONSTRUCTED — not from SM. Methods intent: Analyze all reviews + debate transcripts → common strengths/weaknesses as system-wide feedback.
+# Recreates: SN8 GenerateSystemFeedback "Analyze all these critiques... summarize as feedback for the whole system"; Methods Meta-review feedback loop (p.26, appended to agent prompts next iteration).
 META_SYSTEM_FEEDBACK = """You are an expert in scientific research and meta-analysis.
 Your task is to analyze the full set of reviews and debate transcripts produced by the system and distill them into system-wide feedback: the recurring strengths and weaknesses that should guide future hypothesis generation and review.
 
@@ -271,6 +284,7 @@ Produce a structured meta-analysis report covering the common strengths, common 
 Response:"""
 
 # RECONSTRUCTED — not from SM. Methods intent: Parse a natural-language research goal into preferences, attributes, constraints; return a JSON object (described in words).
+# Recreates: Methods "research goal -> ResearchPlan configuration" (Methods p.23); SN10.1 example (Preferences/Attributes/Constraints). No prompt published in SN9.
 SUP_GOAL_PARSE = """You are an expert at interpreting natural-language research goals and converting them into a structured research plan configuration.
 Your task is to read the raw research goal and extract its preferences, attributes, and constraints.
 
@@ -289,6 +303,7 @@ Return the result as a JSON object with a key for the restated goal, a key for p
 Response:"""
 
 # RECONSTRUCTED — not from SM. Methods intent: Safety-review a research goal; conclude safe/unsafe with reason.
+# Recreates: SN7 safety — goal-level safety review run before any generation (unsafe goal aborts the run). No prompt published in SN9.
 SUP_SAFETY_REVIEW_GOAL = """You are an expert in research safety and ethics tasked with reviewing a proposed research goal before any hypotheses are generated for it.
 Your task is to determine whether the goal can be pursued safely and ethically, or whether it could enable harm.
 
@@ -304,6 +319,7 @@ Instructions:
 Provide your reasoning, then conclude with "safety: <safe or unsafe>" and a brief reason."""
 
 # RECONSTRUCTED — not from SM. Methods intent: Safety-review a hypothesis; conclude safe/unsafe with reason.
+# Recreates: SN7 safety — per-hypothesis safety review. Per the supplement, hypotheses flagged unsafe are EXCLUDED from the tournament (do not enter ranking/evolution/overview); enforced in the Supervisor (Phase 4). No prompt published in SN9.
 SUP_SAFETY_REVIEW_HYPOTHESIS = """You are an expert in research safety and ethics tasked with reviewing a generated hypothesis in the context of its research goal.
 Your task is to determine whether the hypothesis can be pursued safely and ethically, or whether it could enable harm.
 
