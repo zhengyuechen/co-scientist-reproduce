@@ -21,6 +21,11 @@ class TaskType(str, Enum):
     GENERATE_SYSTEM_FEEDBACK = "generate_system_feedback"
     GENERATE_FINAL_OVERVIEW = "generate_final_overview"
 
+class Origin(str, Enum):
+    GENERATED = "generated"
+    EVOLVED = "evolved"
+    USER_SEED = "user_seed"
+
 class Safety(str, Enum):
     UNREVIEWED = "unreviewed"
     SAFE = "safe"
@@ -48,7 +53,7 @@ class Hypothesis(BaseModel):
     created_tick: int = 0
     safety: Safety = Safety.UNREVIEWED
     safety_reason: str | None = None
-    origin: str = "generated"  # generated | evolved | user_seed
+    origin: Origin = Origin.GENERATED
 
 class Review(BaseModel):
     hypothesis_id: str

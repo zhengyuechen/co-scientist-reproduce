@@ -11,3 +11,7 @@ def test_update_equal_ratings_k32():
 def test_update_is_zero_sum():
     w, l = update(1300, 1100, k=32)
     assert abs((w - 1300) + (l - 1100)) < 1e-9  # points conserved
+
+def test_initial_elo_is_sm_value():
+    from cosci.elo import INITIAL_ELO
+    assert INITIAL_ELO == 1200

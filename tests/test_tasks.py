@@ -1,4 +1,3 @@
-import asyncio
 import pytest
 from cosci.models import Task, AgentName, TaskType
 from cosci.tasks import GlobalTaskQueue
