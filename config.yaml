@@ -1,0 +1,14 @@
+# Provenance: SM = from supplement, OURS = our default (see spec §9)
+default_model: "google/gemini-2.0-flash-exp:free"   # OURS (free, cost-safe)
+models: {}                                           # per-agent overrides, e.g. generation: "..."
+elo:        { k_factor: 32, scale: 400 }             # OURS (SM gives init=1200 only)
+budget:     { max_ideas: 20, max_matches_per_idea: 8, max_wallclock_s: 1800, max_tokens: null }  # OURS
+temperature: { generation: 0.7, reflection: 0.5, ranking: 0.3, evolution: 0.8 }  # OURS
+debate:     { turns_typical_min: 3, turns_typical_max: 5, turns_max: 10 }  # SM (SN9)
+evolution:  { top_k: 5 }                              # SM (SN8)
+overview:   { top_n: 10 }                             # SM (SN8)
+workers: 4                                            # SM Fig 1b (illustrative)
+scheduler: "continuous"                               # OURS flag: continuous | round_based
+proximity:  { method: "embeddings", model: "sentence-transformers/all-MiniLM-L6-v2" }
+grounding:  { backend: "arxiv" }                      # OURS: arxiv | tavily | serper | brave
+plateau:    { window: 10, epsilon: 5.0 }              # OURS (best-Elo Δ over window)
