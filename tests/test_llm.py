@@ -10,6 +10,12 @@ def test_extract_json_raises_on_garbage():
     with pytest.raises(ValueError):
         extract_json("not json at all")
 
+def test_extract_json_no_language_tag_fence():
+    assert extract_json('```\n{"c": 3}\n```') == {"c": 3}
+
+def test_extract_json_inline_fence():
+    assert extract_json('```json {"d": 4}```') == {"d": 4}
+
 @pytest.mark.asyncio
 async def test_fake_llm_is_deterministic_and_records():
     fake = FakeLLM(router=lambda agent, messages: f"reply-to-{agent}")

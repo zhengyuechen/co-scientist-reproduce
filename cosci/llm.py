@@ -1,18 +1,18 @@
 """LLM access. Only module that talks to OpenRouter. Swappable with FakeLLM in tests."""
 from __future__ import annotations
 import json
-from typing import Protocol, Callable
+import re
+from typing import Protocol
 from tenacity import retry, wait_exponential, stop_after_attempt
 from cosci.config import Config, require_openrouter_key
 
 def extract_json(text: str) -> object:
+    """Parse JSON from an LLM response, tolerating ```json / ``` code fences."""
     s = text.strip()
-    if s.startswith("```"):
-        s = s.split("\n", 1)[1] if "\n" in s else s
-        if s.startswith("json"):
-            s = s[4:]
-    if s.endswith("```"):
-        s = s[: s.rfind("```")]
+    # strip a leading code fence with optional language tag (```, ```json, ```JSON ...)
+    s = re.sub(r"^```[a-zA-Z0-9]*\n?", "", s)
+    # strip a trailing code fence
+    s = re.sub(r"\n?```$", "", s)
     s = s.strip()
     try:
         return json.loads(s)
@@ -38,11 +38,11 @@ class OpenRouterClient:
                        temperature: float | None = None,
                        max_tokens: int | None = None) -> str:
         if temperature is None:
-            temperature = self._cfg.temperature.get(agent, 0.7)
-        resp = await self._client.chat.completions.create(
-            model=self._cfg.model_for(agent),
-            messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-        )
+            temperature = self._cfg.temperature.get(agent)
+        kwargs: dict = {"model": self._cfg.model_for(agent), "messages": messages}
+        if temperature is not None:
+            kwargs["temperature"] = temperature
+        if max_tokens is not None:
+            kwargs["max_tokens"] = max_tokens
+        resp = await self._client.chat.completions.create(**kwargs)
         return resp.choices[0].message.content or ""
