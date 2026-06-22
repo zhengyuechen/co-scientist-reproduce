@@ -24,6 +24,7 @@ Goal: {goal}
 Criteria for a strong hypothesis:
 {preferences}
 
+Additional instructions:
 {instructions}
 
 Instructions:
