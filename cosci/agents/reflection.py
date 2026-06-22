@@ -1,0 +1,69 @@
+"""Reflection agent: runs full and deep-verification reviews on a hypothesis."""
+from __future__ import annotations
+
+from cosci.agents.base import Results, parse_label
+from cosci.memory import ContextMemory
+from cosci.models import AgentName, Review, Safety, Task, TaskType
+from cosci.prompts.reconstructed import REFLECT_DEEP_VERIFICATION, REFLECT_FULL
+from cosci.prompts.render import render
+
+
+class ReflectionAgent:
+    async def execute(self, task: Task, memory: ContextMemory, llm, cfg) -> Results:
+        hid = task.target_id
+        hypothesis = memory.get(hid)
+
+        # --- Full review ---
+        full_prompt = render(
+            REFLECT_FULL,
+            goal=memory.research_plan.goal,
+            hypothesis=hypothesis.text,
+            articles_with_reasoning="",
+        )
+        full_response = await llm.complete("reflection", [{"role": "user", "content": full_prompt}])
+
+        safety_verdict = parse_label(full_response, "safety")
+        if safety_verdict == "unsafe":
+            review_safety = Safety.UNSAFE
+            hypothesis.safety = Safety.UNSAFE
+            safety_line = next(
+                (ln for ln in full_response.splitlines() if "safety" in ln.lower()),
+                full_response,
+            )
+            hypothesis.safety_reason = safety_line
+        else:
+            review_safety = Safety.SAFE
+            hypothesis.safety = Safety.SAFE
+
+        full_review = Review(
+            hypothesis_id=hid,
+            type="full",
+            text=full_response,
+            tool_grounded=False,
+            safety=review_safety,
+        )
+
+        # --- Deep verification review ---
+        deep_prompt = render(
+            REFLECT_DEEP_VERIFICATION,
+            hypothesis=hypothesis.text,
+        )
+        deep_response = await llm.complete("reflection", [{"role": "user", "content": deep_prompt}])
+
+        deep_review = Review(
+            hypothesis_id=hid,
+            type="deep_verification",
+            text=deep_response,
+            tool_grounded=False,
+        )
+
+        memory.add_review(full_review)
+        memory.add_review(deep_review)
+
+        follow_up = Task(
+            agent=AgentName.RANKING,
+            action=TaskType.ADD_TO_TOURNAMENT,
+            target_id=hid,
+        )
+
+        return Results(reviews=[full_review, deep_review], follow_ups=[follow_up])
