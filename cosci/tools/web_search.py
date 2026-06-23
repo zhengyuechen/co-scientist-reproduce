@@ -30,6 +30,13 @@ class WebSearchBackend(Protocol):
         ...
 
 
+def backend_label(backend) -> str:
+    """Short human label for a grounding backend, for logs/UI (e.g. 'arxiv')."""
+    if backend is None:
+        return "none"
+    return type(backend).__name__.replace("Backend", "").lower()
+
+
 def format_articles(articles: list[Article]) -> str:
     if not articles:
         return ""

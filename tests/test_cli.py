@@ -1,4 +1,5 @@
 import os, pytest
+from cosci import run_log
 from cosci.cli import run_cli, parse_args
 from cosci.config import load_config
 from cosci.models import AgentName
@@ -26,6 +27,11 @@ async def test_run_cli_writes_results(tmp_path):
     assert os.path.isfile(os.path.join(out, "research_overview.md"))
     assert os.path.isfile(os.path.join(out, "elo_trajectory.csv"))
     assert "Overview text." in open(os.path.join(out, "research_overview.md")).read()
+    # the run also emitted an event log bookended by run_started/run_done
+    evs = run_log.read_events(run_log.events_path(str(tmp_path), "2026-06-22_120000_cure-x"))
+    names = [e["event"] for e in evs]
+    assert names[0] == "run_started" and names[-1] == "run_done"
+    assert "generation_started" in names and "task" in names
 
 @pytest.mark.asyncio
 async def test_run_cli_unsafe_goal_writes_no_results(tmp_path):
@@ -34,4 +40,7 @@ async def test_run_cli_unsafe_goal_writes_no_results(tmp_path):
     out, _mem = await run_cli("bioweapon", cfg, llm, grounding=None,
                               results_base=str(tmp_path), timestamp="2026-06-22_120000")
     assert out is None
-    assert list(tmp_path.iterdir()) == []   # nothing written on abort
+    # no results directory is written on abort (only the event log records the attempt)
+    assert not (tmp_path / "2026-06-22_120000_bioweapon").exists()
+    evs = run_log.read_events(run_log.events_path(str(tmp_path), "2026-06-22_120000_bioweapon"))
+    assert [e["event"] for e in evs] == ["run_started", "run_aborted"]

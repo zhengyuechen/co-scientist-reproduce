@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import re
 
+from cosci import run_log
 from cosci.agents.base import Results
 from cosci.agents.text_utils import clean_title, split_atomic_hypotheses
 from cosci.memory import ContextMemory
@@ -10,7 +11,7 @@ from cosci.models import AgentName, Hypothesis, Origin, Task, TaskType
 from cosci.prompts.reconstructed import GEN_ITERATIVE_ASSUMPTIONS, GEN_RESEARCH_EXPANSION
 from cosci.prompts.render import assemble_instructions, render
 from cosci.prompts.verbatim import GEN_DEBATE, GEN_LITERATURE
-from cosci.tools.web_search import safe_search
+from cosci.tools.web_search import backend_label, safe_search
 
 _STRATEGY_PROMPT = {
     "literature_review": GEN_LITERATURE,
@@ -58,8 +59,15 @@ class GenerationAgent:
 
         for strategy in self.strategies:
             template = _STRATEGY_PROMPT[strategy]
+            run_log.emit("generation_started", tick=memory.tick, strategy=strategy)
             if strategy == "literature_review":
+                if self.grounding is not None:
+                    run_log.emit("grounding_search", tick=memory.tick, query=goal,
+                                 backend=backend_label(self.grounding))
                 articles_block = await safe_search(self.grounding, goal)
+                if self.grounding is not None:
+                    run_log.emit("grounding_result", tick=memory.tick,
+                                 articles=articles_block.count("URL:"))
             else:
                 articles_block = ""
             rendered = render(
@@ -101,5 +109,6 @@ class GenerationAgent:
                 follow_ups.append(
                     Task(agent=AgentName.REFLECTION, action=TaskType.REVIEW_HYPOTHESIS, target_id=h.id)
                 )
+            run_log.emit("generation_done", tick=memory.tick, strategy=strategy, hypotheses=len(chunks))
 
         return Results(new_hypotheses=new_hypotheses, follow_ups=follow_ups)

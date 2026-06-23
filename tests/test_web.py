@@ -113,6 +113,28 @@ async def test_execute_run_writes_results(env):
 
 
 @pytest.mark.asyncio
+async def test_run_events_endpoint(env):
+    cfg_path, results = env
+    cfg = load_config(str(cfg_path))
+    cfg.budget.max_ideas = 2
+    cfg.budget.max_matches_per_idea = 1
+    Path(results).mkdir(parents=True, exist_ok=True)
+    registry = {"r1": {"status": "queued", "snapshot": str(Path(results) / "r1.snap.json")}}
+    await execute_run("r1", "cure X", "continuous", cfg, FakeLLM(_router), None,
+                      registry, str(results), "2026-06-22_120000")
+    c = _client(env)
+    body = c.get("/api/runs/r1/events").json()
+    names = [e["event"] for e in body["events"]]
+    assert names[0] == "run_started" and names[-1] == "run_done"
+    assert body["next"] == len(body["events"])
+    # incremental polling from the cursor returns nothing new
+    tail = c.get(f"/api/runs/r1/events?since={body['next']}").json()
+    assert tail["events"] == [] and tail["next"] == body["next"]
+    # unknown run -> empty, not an error
+    assert c.get("/api/runs/nope/events").json() == {"events": [], "next": 0}
+
+
+@pytest.mark.asyncio
 async def test_execute_run_unsafe_goal_aborts(env):
     cfg_path, results = env
     cfg = load_config(str(cfg_path))

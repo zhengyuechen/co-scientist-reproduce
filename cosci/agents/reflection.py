@@ -1,12 +1,13 @@
 """Reflection agent: runs full and deep-verification reviews on a hypothesis."""
 from __future__ import annotations
 
+from cosci import run_log
 from cosci.agents.base import Results, parse_label
 from cosci.memory import ContextMemory
 from cosci.models import AgentName, Review, Safety, Task, TaskType
 from cosci.prompts.reconstructed import REFLECT_DEEP_VERIFICATION, REFLECT_FULL
 from cosci.prompts.render import render
-from cosci.tools.web_search import safe_search
+from cosci.tools.web_search import backend_label, safe_search
 
 
 class ReflectionAgent:
@@ -16,10 +17,16 @@ class ReflectionAgent:
     async def execute(self, task: Task, memory: ContextMemory, llm, cfg) -> Results:
         hid = task.target_id
         hypothesis = memory.get(hid)
+        run_log.emit("reflection_started", tick=memory.tick, hypothesis_id=hid)
 
         # --- Full review --- (grounding failures degrade to parametric, never crash the run)
         grounding_query = f"{memory.research_plan.goal} {hypothesis.title}".strip()
+        if self.grounding is not None:
+            run_log.emit("grounding_search", tick=memory.tick, query=grounding_query,
+                         backend=backend_label(self.grounding))
         articles_block = await safe_search(self.grounding, grounding_query)
+        if self.grounding is not None:
+            run_log.emit("grounding_result", tick=memory.tick, articles=articles_block.count("URL:"))
         full_prompt = render(
             REFLECT_FULL,
             goal=memory.research_plan.goal,
@@ -46,6 +53,9 @@ class ReflectionAgent:
         else:
             review_safety = Safety.SAFE
             hypothesis.safety = Safety.SAFE
+
+        run_log.emit("reflection_done", tick=memory.tick, hypothesis_id=hid,
+                     grounded=bool(articles_block), safety=review_safety)
 
         full_review = Review(
             hypothesis_id=hid,

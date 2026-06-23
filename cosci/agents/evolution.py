@@ -2,6 +2,7 @@
 from __future__ import annotations
 import logging
 
+from cosci import run_log
 from cosci.agents.base import Results
 from cosci.agents.text_utils import clean_title
 from cosci.elo import INITIAL_ELO
@@ -46,6 +47,8 @@ class EvolutionAgent:
             created_tick=memory.tick,
         )
         memory.add_hypothesis(evolved)
+        run_log.emit("evolution_done", tick=memory.tick, child=evolved.id,
+                     parents=[top[0].id, top[1].id])
 
         follow_up = Task(
             agent=AgentName.REFLECTION,

@@ -22,6 +22,7 @@ from cosci.agents import (
     EvolutionAgent, GenerationAgent, MetaReviewAgent,
     ProximityAgent, RankingAgent, ReflectionAgent,
 )
+from cosci import run_log
 from cosci.config import Config, load_config
 from cosci.engine import run_engine
 from cosci.logging_utils import make_run_dir, write_results, slugify
@@ -52,6 +53,8 @@ async def execute_run(run_id, goal, mode, cfg, llm, grounding, registry, results
     """Run the engine to completion and record results. Awaitable for tests."""
     rec = registry[run_id]
     rec["status"] = "running"
+    run_log.bind(run_log.events_path(results_base, run_id))
+    run_log.emit("run_started", goal=goal, mode=mode)
     try:
         Path(rec["snapshot"]).parent.mkdir(parents=True, exist_ok=True)
         mem = ContextMemory()
@@ -59,12 +62,15 @@ async def execute_run(run_id, goal, mode, cfg, llm, grounding, registry, results
         overview = await run_engine(goal, mem, llm, cfg, agents, mode=mode, snapshot_path=rec["snapshot"])
         if overview is None:
             rec["status"] = "aborted"
+            run_log.emit("run_aborted", reason="unsafe goal")
         else:
             out = make_run_dir(results_base, goal, timestamp)
             write_results(mem, overview, out)
             rec.update(status="done", out=out)
+            run_log.emit("run_done", hypotheses=len(mem.hypotheses), matches=len(mem.tournament))
     except Exception as exc:  # surface the failure to the UI rather than crash the task
         rec.update(status="error", error=str(exc))
+        run_log.emit("run_error", error=str(exc))
 
 
 def _read_run(results_base: str, run_id: str) -> dict:
@@ -182,6 +188,11 @@ def create_app(llm_factory=default_llm_factory, config_path="config.yaml", resul
             execute_run(run_id, goal, mode, cfg, llm, grounding, registry, results_base, ts)
         )
         return {"run_id": run_id}
+
+    @app.get("/api/runs/{run_id}/events")
+    def run_events(run_id: str, since: int = 0):
+        evs = run_log.read_events(run_log.events_path(results_base, run_id), since=since)
+        return {"events": evs, "next": since + len(evs)}
 
     @app.get("/api/runs/{run_id}/status")
     def run_status(run_id: str):

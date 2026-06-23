@@ -10,9 +10,10 @@ from cosci.agents import (
     GenerationAgent, ReflectionAgent, RankingAgent,
     EvolutionAgent, ProximityAgent, MetaReviewAgent,
 )
+from cosci import run_log
 from cosci.config import Config, load_config
 from cosci.engine import run_engine
-from cosci.logging_utils import make_run_dir, write_results, summary_line, grounding_line
+from cosci.logging_utils import make_run_dir, write_results, summary_line, grounding_line, slugify
 from cosci.memory import ContextMemory
 from cosci.models import AgentName
 from cosci.tools.web_search import build_backend, is_faithful_grounding
@@ -39,13 +40,17 @@ async def run_cli(
     results_base: str = "results",
     timestamp: str,
 ) -> tuple[str | None, ContextMemory]:
+    run_log.bind(run_log.events_path(results_base, f"{timestamp}_{slugify(goal)}"))
+    run_log.emit("run_started", goal=goal, mode=mode)
     mem = ContextMemory()
     agents = build_agents(cfg, grounding)
     overview = await run_engine(goal, mem, llm, cfg, agents, mode=mode)
     if overview is None:           # unsafe-goal abort -> no results written
+        run_log.emit("run_aborted", reason="unsafe goal")
         return None, mem
     out = make_run_dir(results_base, goal, timestamp)
     write_results(mem, overview, out)
+    run_log.emit("run_done", hypotheses=len(mem.hypotheses), matches=len(mem.tournament))
     return out, mem
 
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import statistics
 
+from cosci import run_log
 from cosci.agents.base import Results, parse_label
 from cosci.elo import INITIAL_ELO, update as elo_update
 from cosci.memory import ContextMemory
@@ -93,4 +94,6 @@ class RankingAgent:
             tick=memory.tick,
         )
         memory.record_match(match)
+        run_log.emit("ranking_match", tick=memory.tick, a=a.id, b=b.id, winner=winner.id,
+                     mode=mode, elo_delta=round(new_w - elo_before[winner.id], 1))
         return Results(match=match)

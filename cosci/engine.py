@@ -26,6 +26,7 @@ from cosci.memory import ContextMemory
 from cosci.llm import LLMClient
 from cosci.config import Config
 from cosci.agents.base import Agent
+from cosci import run_log
 
 log = logging.getLogger(__name__)
 
@@ -64,18 +65,21 @@ async def _run_continuous(sup: Supervisor, lock: asyncio.Lock, initial: Task,
         t = await queue.get()
         async with lock:
             agent = sup.route(t)
+            run_log.emit("task", tick=memory.tick, agent=t.agent, action=t.action, target=t.target_id)
             res = await agent.execute(t, memory, llm, cfg)
             memory.tick += 1
             for ft in sup.manage_follow_ups(res, memory):
                 await queue.put(ft)
             if snapshot_path and memory.tick % 10 == 0:
                 memory.save_snapshot(snapshot_path)
+                run_log.emit("snapshot", tick=memory.tick)
 
 
 async def _run_one(sup: Supervisor, lock: asyncio.Lock, task: Task,
                    memory: ContextMemory, llm: LLMClient, cfg: Config) -> list[Task]:
     async with lock:
         agent = sup.route(task)
+        run_log.emit("task", tick=memory.tick, agent=task.agent, action=task.action, target=task.target_id)
         res = await agent.execute(task, memory, llm, cfg)
         memory.tick += 1
         return sup.manage_follow_ups(res, memory)
