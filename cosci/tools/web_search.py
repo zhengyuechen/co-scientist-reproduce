@@ -93,9 +93,10 @@ def build_backend(cfg) -> WebSearchBackend | None:
         if not key:
             raise RuntimeError("WEB_SEARCH_API_KEY not set — required for Tavily backend.")
         return TavilyBackend(key)
-    # default fallback
-    return ArxivBackend()
+    raise ValueError(
+        f"unsupported grounding backend '{b}' (supported: arxiv, none, tavily)"
+    )
 
 
 def is_faithful_grounding(cfg) -> bool:
-    return cfg.grounding.backend in {"tavily", "serper", "brave"}
+    return cfg.grounding.backend == "tavily"

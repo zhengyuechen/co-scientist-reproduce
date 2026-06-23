@@ -10,5 +10,5 @@ overview:   { top_n: 10 }                             # SM (SN8)
 workers: 4                                            # SM Fig 1b (illustrative)
 scheduler: "continuous"                               # OURS flag: continuous | round_based
 proximity:  { method: "embeddings", model: "sentence-transformers/all-MiniLM-L6-v2" }
-grounding:  { backend: "arxiv" }                      # OURS: arxiv | tavily | serper | brave
+grounding:  { backend: "arxiv" }                      # OURS: arxiv (default) | none | tavily (web search, needs WEB_SEARCH_API_KEY)
 plateau:    { window: 10, epsilon: 5.0 }              # OURS (best-Elo Δ over window)

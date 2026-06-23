@@ -27,3 +27,7 @@ def test_build_backend_and_faithful_flag():
     assert build_backend(cfg) is None
     cfg.grounding.backend = "tavily"
     assert is_faithful_grounding(cfg) is True
+    # unsupported backends must raise, not silently fall through to ArxivBackend
+    cfg.grounding.backend = "serper"
+    with pytest.raises(ValueError):
+        build_backend(cfg)

@@ -48,7 +48,7 @@ class ReflectionAgent:
             hypothesis_id=hid,
             type="full",
             text=full_response,
-            tool_grounded=False,
+            tool_grounded=bool(articles_block),
             safety=review_safety,
         )
 

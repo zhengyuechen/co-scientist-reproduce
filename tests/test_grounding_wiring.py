@@ -43,6 +43,9 @@ async def test_reflection_grounds_full_review_on_hypothesis():
         mem, FakeLLM(router), cfg)
     assert backend.queries and backend.queries[0].startswith("some hypothesis")
     assert any("Paper1" in p for p in captured["prompts"])
+    # full review must be marked tool_grounded when grounding returned articles
+    full_reviews = [r for r in mem.reviews["G1"] if r.type == "full"]
+    assert full_reviews and full_reviews[0].tool_grounded is True
 
 @pytest.mark.asyncio
 async def test_generation_no_backend_still_works():
