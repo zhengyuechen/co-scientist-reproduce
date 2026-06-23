@@ -19,6 +19,8 @@ let loadedConfig = null;
 let activeRunId = null;
 let eloChart = null;
 let poller = null;
+let timer = null;
+let runStartedAt = null;
 
 /* ── views ─────────────────────────────────────────────── */
 function showView(name) {
@@ -151,12 +153,42 @@ function renderEloChart(traj) {
 }
 
 /* ── launch + poll ─────────────────────────────────────── */
+function formatElapsed(ms) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const pad = (n) => String(n).padStart(2, "0");
+  return h ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+}
+
+function updateTimer(label = "elapsed") {
+  const node = $("#run-timer");
+  if (!node || runStartedAt == null) return;
+  node.hidden = false;
+  node.textContent = `${label} ${formatElapsed(Date.now() - runStartedAt)}`;
+}
+
+function startTimer() {
+  if (timer) clearInterval(timer);
+  runStartedAt = Date.now();
+  updateTimer();
+  timer = setInterval(() => updateTimer(), 1000);
+}
+
+function stopTimer(label = "elapsed") {
+  if (timer) clearInterval(timer);
+  timer = null;
+  updateTimer(label);
+}
+
 async function launchRun(e) {
   e.preventDefault();
   const goal = $("#goal").value.trim();
   if (!goal) return;
   const btn = $("#run-btn"); const status = $("#run-status");
   btn.disabled = true;
+  startTimer();
   status.hidden = false; status.className = "run-status";
   status.replaceChildren(spinner(), txt("queued…"));
   let runId;
@@ -164,6 +196,7 @@ async function launchRun(e) {
     ({ run_id: runId } = await api.send("POST", "/api/runs", { goal, mode: $("#mode").value }));
   } catch (err) {
     status.className = "run-status is-error"; status.textContent = `Could not start: ${err.message}`;
+    stopTimer("failed after");
     btn.disabled = false; return;
   }
   if (poller) clearInterval(poller);
@@ -189,12 +222,15 @@ async function pollStatus(runId, btn) {
   }
   clearInterval(poller); poller = null; btn.disabled = false;
   if (s.status === "done") {
+    stopTimer("completed in");
     status.innerHTML = "Run complete.";
     loadRuns().then(() => selectRun(runId));
   } else if (s.status === "aborted") {
+    stopTimer("aborted after");
     status.className = "run-status is-error";
     status.textContent = "Aborted: the research goal did not pass the safety review.";
   } else {
+    stopTimer("failed after");
     status.className = "run-status is-error";
     status.textContent = `Run failed: ${s.error || "unknown error"}`;
   }
