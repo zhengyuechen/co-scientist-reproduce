@@ -319,7 +319,7 @@ Instructions:
 Provide your reasoning, then conclude with "safety: <safe or unsafe>" and a brief reason."""
 
 # RECONSTRUCTED — not from SM. Methods intent: Safety-review a hypothesis; conclude safe/unsafe with reason.
-# Recreates: SN7 safety — per-hypothesis safety review. Per the supplement, hypotheses flagged unsafe are EXCLUDED from the tournament (do not enter ranking/evolution/overview); enforced in the Supervisor (Phase 4). No prompt published in SN9.
+# Recreates: SN7 safety — per-hypothesis safety review. Per the supplement, hypotheses flagged unsafe are EXCLUDED from the tournament (do not enter ranking/evolution/overview); enforced in the Supervisor. No prompt published in SN9.
 SUP_SAFETY_REVIEW_HYPOTHESIS = """You are an expert in research safety and ethics tasked with reviewing a generated hypothesis in the context of its research goal.
 Your task is to determine whether the hypothesis can be pursued safely and ethically, or whether it could enable harm.
 

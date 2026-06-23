@@ -1,5 +1,5 @@
-"""ContextMemory == SM 'SharedMemory'. JSON-snapshot for restartability (spec §8).
-Concurrency note: callers serialize mutations via an asyncio.Lock in the scheduler (Phase 4);
+"""ContextMemory == SM 'SharedMemory'. JSON-snapshot for restartability.
+Concurrency note: callers serialize mutations via an asyncio.Lock in the engine's scheduler;
 these methods are plain sync."""
 from __future__ import annotations
 from pydantic import BaseModel

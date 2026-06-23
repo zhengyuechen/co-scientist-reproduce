@@ -37,5 +37,5 @@ async def test_reflection_unsafe_sets_quarantine_flag():
     mem, res = await _run(_unsafe_router)
     assert mem.get("G1").safety == Safety.UNSAFE
     assert any(r.safety == Safety.UNSAFE for r in res.reviews)
-    # agent still emits the follow-up; Supervisor (Phase 4) is what drops it
+    # agent still emits the follow-up; the Supervisor is what drops it
     assert res.follow_ups[0].action == TaskType.ADD_TO_TOURNAMENT

@@ -6,3 +6,6 @@ __pycache__/
 .pytest_cache/
 .DS_Store
 .superpowers/
+
+# build/process docs kept local-only (design spec, plans)
+docs/
