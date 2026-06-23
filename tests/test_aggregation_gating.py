@@ -1,8 +1,9 @@
 import pytest
 from cosci.agents.reflection import ReflectionAgent, _parse_novelty
-from cosci.agents.meta_review import MetaReviewAgent, passes_novelty_gate
+from cosci.agents.meta_review import MetaReviewAgent
+from cosci.agents.base import passes_novelty_gate
 from cosci.memory import ContextMemory
-from cosci.models import Hypothesis, ResearchPlan, Task, AgentName, TaskType
+from cosci.models import Hypothesis, Review, ResearchPlan, Task, AgentName, TaskType
 from cosci.config import load_config
 from tests.fake_llm import FakeLLM
 
@@ -31,7 +32,7 @@ async def test_reflection_parses_verdicts_into_scores_not_empty():
             return "Assumption 1 is shaky.\nverification: invalidated"
         return "Closest model: Diosi-Penrose; equivalent under relabeling.\nnovelty: 2\nsafety: safe"
 
-    await ReflectionAgent().execute(
+    res = await ReflectionAgent().execute(
         Task(agent=AgentName.REFLECTION, action=TaskType.REVIEW_HYPOTHESIS, target_id="G1"),
         mem, FakeLLM(router), cfg)
 
@@ -41,6 +42,53 @@ async def test_reflection_parses_verdicts_into_scores_not_empty():
     deep = [r for r in mem.reviews["G1"] if r.type == "deep_verification"][0]
     assert full.scores == {"novelty": 2.0}          # the previously-empty scores object now carries the verdict
     assert deep.scores == {"verification": 0.0}
+    # the gate actually fires: novelty 2 -> deactivated, no tournament follow-up
+    assert h.active is False and "novelty=2.0" in h.pruned_reason
+    assert res.follow_ups == []
+
+
+@pytest.mark.asyncio
+async def test_reflection_reasks_when_novelty_line_missing():
+    cfg = load_config("config.yaml")
+    mem = ContextMemory(research_plan=ResearchPlan(goal="g"))
+    mem.add_hypothesis(Hypothesis(id="G1", text="some hypothesis", title="T", source_strategy="s"))
+    calls = {"n": 0}
+
+    def router(a, m):
+        c = m[-1]["content"]
+        if "reply with ONLY one line" in c:          # the targeted re-ask
+            calls["n"] += 1
+            return "novelty: 3"
+        if "deep verification" in c.lower():
+            return "verification: uncertain"
+        return "Closest model: X. A real review but no verdict line.\nsafety: safe"
+
+    res = await ReflectionAgent().execute(
+        Task(agent=AgentName.REFLECTION, action=TaskType.REVIEW_HYPOTHESIS, target_id="G1"),
+        mem, FakeLLM(router), cfg)
+    assert calls["n"] == 1                            # re-asked exactly once
+    assert mem.get("G1").novelty == 3.0              # score recovered, no longer None
+    assert mem.get("G1").active is False             # 3 < 5 -> pruned
+    assert res.follow_ups == []
+
+
+@pytest.mark.asyncio
+async def test_reflection_keeps_a_novel_hypothesis_active():
+    cfg = load_config("config.yaml")
+    mem = ContextMemory(research_plan=ResearchPlan(goal="g"))
+    mem.add_hypothesis(Hypothesis(id="G1", text="a genuinely new idea", title="T", source_strategy="s"))
+
+    def router(a, m):
+        c = m[-1]["content"].lower()
+        if "deep verification" in c:
+            return "verification: verified"
+        return "No comparable prior art.\nnovelty: 8\nsafety: safe"
+
+    res = await ReflectionAgent().execute(
+        Task(agent=AgentName.REFLECTION, action=TaskType.REVIEW_HYPOTHESIS, target_id="G1"),
+        mem, FakeLLM(router), cfg)
+    assert mem.get("G1").active is True
+    assert len(res.follow_ups) == 1 and res.follow_ups[0].action == TaskType.ADD_TO_TOURNAMENT
 
 
 def test_passes_novelty_gate():
@@ -70,7 +118,29 @@ async def test_overview_excludes_low_novelty_even_if_it_won_the_tournament():
     p = captured["prompt"]
     assert "text G2" in p                # the novel hypothesis reaches synthesis
     assert "text G1" not in p            # the restatement is excluded though it topped the tournament
-    assert "excluded as low-novelty" in p
+    assert "pruned as low-novelty" in p
+
+
+@pytest.mark.asyncio
+async def test_overview_carries_review_closest_model_into_synthesis():
+    cfg = load_config("config.yaml")
+    mem = ContextMemory(research_plan=ResearchPlan(goal="g"))
+    mem.add_hypothesis(_h("G1", novelty=8, elo=1200))
+    mem.add_review(Review(hypothesis_id="G1", type="full",
+                          text="Closest existing model: the Diosi-Penrose model. Genuinely distinct from it.",
+                          scores={"novelty": 8.0}))
+    captured = {}
+
+    def router(a, m):
+        captured["prompt"] = m[-1]["content"]
+        return "Overview."
+
+    await MetaReviewAgent().execute(
+        Task(agent=AgentName.META_REVIEW, action=TaskType.GENERATE_FINAL_OVERVIEW),
+        mem, FakeLLM(router), cfg)
+    # Tier 1: the review's closest-model naming reaches the synthesis prompt
+    assert "closest existing model" in captured["prompt"].lower()
+    assert "Diosi-Penrose" in captured["prompt"]
 
 
 @pytest.mark.asyncio

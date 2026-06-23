@@ -4,7 +4,7 @@ from __future__ import annotations
 import re
 
 from cosci import run_log
-from cosci.agents.base import Results, parse_label
+from cosci.agents.base import Results, parse_label, passes_novelty_gate
 from cosci.memory import ContextMemory
 from cosci.models import AgentName, Review, Safety, Task, TaskType
 from cosci.prompts.reconstructed import REFLECT_DEEP_VERIFICATION, REFLECT_FULL
@@ -72,6 +72,15 @@ class ReflectionAgent:
         # Capture the novelty verdict the model writes in prose into a parsed score,
         # so a restatement of an existing model can actually be gated downstream.
         novelty = _parse_novelty(full_response)
+        if novelty is None:
+            # The model skipped the required verdict line; re-ask for just the score so a
+            # score lands on every review instead of failing open into the keep bucket.
+            ask = await llm.complete("reflection", [{"role": "user", "content": (
+                "Based on the review below, reply with ONLY one line in exactly this format:\n"
+                "novelty: <integer 1-10>\n"
+                "where 1 = a restatement of an existing model or not a real hypothesis, "
+                "10 = no comparable prior art.\n\nReview:\n" + full_response)}])
+            novelty = _parse_novelty(ask)
         hypothesis.novelty = novelty
 
         run_log.emit("reflection_done", tick=memory.tick, hypothesis_id=hid,
@@ -107,10 +116,17 @@ class ReflectionAgent:
         memory.add_review(full_review)
         memory.add_review(deep_review)
 
-        follow_up = Task(
-            agent=AgentName.RANKING,
-            action=TaskType.ADD_TO_TOURNAMENT,
-            target_id=hid,
-        )
+        # Real gate: a hypothesis its own reviews condemn as a restatement (low novelty) or
+        # invalidated is deactivated here — before the tournament — so it stops surviving
+        # everywhere (active_hypotheses excludes it from ranking and the overview), not just
+        # hidden from the final synthesis.
+        follow_ups: list[Task] = []
+        if passes_novelty_gate(hypothesis, cfg.overview.min_novelty):
+            follow_ups.append(Task(agent=AgentName.RANKING, action=TaskType.ADD_TO_TOURNAMENT, target_id=hid))
+        else:
+            hypothesis.active = False
+            hypothesis.pruned_reason = f"novelty={hypothesis.novelty} verification={hypothesis.verification}"
+            run_log.emit("hypothesis_pruned", tick=memory.tick, hypothesis_id=hid,
+                         novelty=hypothesis.novelty, verification=hypothesis.verification)
 
-        return Results(reviews=[full_review, deep_review], follow_ups=[follow_up])
+        return Results(reviews=[full_review, deep_review], follow_ups=follow_ups)

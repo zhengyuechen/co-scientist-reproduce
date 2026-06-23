@@ -56,6 +56,7 @@ class Hypothesis(BaseModel):
     origin: Origin = Origin.GENERATED
     novelty: float | None = None          # 1-10, parsed from the full review (None = unscored)
     verification: str | None = None       # verified | uncertain | invalidated (deep review verdict)
+    pruned_reason: str | None = None      # set when the novelty gate deactivates the hypothesis
 
 class Review(BaseModel):
     hypothesis_id: str

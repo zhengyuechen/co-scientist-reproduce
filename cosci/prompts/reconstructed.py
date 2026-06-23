@@ -93,14 +93,17 @@ Literature review and analytical rationale (chronologically ordered, beginning w
 
 Instructions:
 1. Correctness: evaluate whether the hypothesis is logically sound and consistent with the provided literature. Cite the specific articles that support or contradict it using their bracket labels, e.g. [A1].
-2. Novelty: evaluate whether the hypothesis is novel. First name the single closest existing model, framework, or result (from the provided literature or from established knowledge), then state explicitly whether the hypothesis is mathematically or conceptually equivalent to it under a relabeling of terms. If it is a restatement of, or a special case of, an existing model, novelty is low — do not credit new terminology as new content.
+2. Novelty: evaluate whether the hypothesis is novel. First name the single closest existing model, framework, or result (from the provided literature or from established knowledge), then state explicitly whether the hypothesis is mathematically or conceptually equivalent to it under a relabeling of terms. If it is a restatement of, or a special case of, an existing model, novelty is low — do not credit new terminology as new content. If the text under review is not a genuine scientific hypothesis at all — task meta-commentary, a literature survey, an outline, a refusal, or anything lacking a specific proposed mechanism — it has no novelty: assign 1 and say it is not a testable hypothesis.
 3. Grounding: for each major claim, identify the supporting or refuting evidence among the provided articles, and note where evidence is missing.
 4. References: list every article you relied on using its bracket label, title, and URL. If no provided article supports a claim, explicitly say "no provided source".
 5. Safety: assess whether pursuing the hypothesis could be unethical or unsafe.
 
-Provide your novelty and correctness assessments with supporting references and a "References used" section. Then conclude with two verdict lines, each on its own line and in exactly this format:
-"novelty: <integer 1-10>" — 1 means a restatement of an existing model, 10 means no comparable prior art exists; base it on the closest-model comparison above.
-"safety: <safe or unsafe>" — with a brief reason."""
+Provide your novelty and correctness assessments with supporting references and a "References used" section.
+
+You MUST end your entire response with exactly these two lines, each on its own line, with nothing after them:
+novelty: <integer from 1 to 10>
+safety: <safe or unsafe>
+where novelty 1 = a restatement of an existing model or not a real hypothesis, and 10 = no comparable prior art exists. Both lines are required."""
 
 # RECONSTRUCTED — not from SM. Methods intent: Decompose hypothesis into core + sub-assumptions, evaluate each independently for plausibility.
 # Recreates: Methods "deep verification review" (Methods pp.26-27); SN8 ReviewHypothesis "break down into core assumptions" one-liner; SN10.6/10.7 examples. No prompt published in SN9.
@@ -250,17 +253,18 @@ Your task is to synthesize the top-ranked hypotheses into a coherent research ov
 
 Goal: {goal}
 
-Top-ranked hypotheses:
+Top-ranked hypotheses, each followed by its review (which names the closest existing model and a novelty verdict):
 {hypotheses}
 
 Instructions:
 1. Identify the major themes shared across the top hypotheses and group them into a small number of distinct, well-defined research directions.
 2. For each research direction, summarize its central idea and the hypotheses that support it.
-3. For each direction, provide a justification: why it is promising for the stated goal, and what evidence or reasoning supports pursuing it.
-4. Note the relationships between directions, including where they are complementary and where they compete.
-5. Conclude with a prioritized summary indicating which directions appear most promising and why.
+3. For each direction, name the single closest existing established model, theory, or framework, and state explicitly whether the direction is genuinely novel or a restatement of it under new terminology. The reviews already identify the closest model and a novelty score — carry that judgment through; do not present a restatement as a promising new direction without naming what it restates.
+4. Provide a justification calibrated to novelty: why a direction is promising and what supports it — but if it largely reproduces an existing model, say so plainly rather than overstating its promise.
+5. Note the relationships between directions, including where they are complementary and where they compete.
+6. Conclude with a prioritized summary. If the leading directions are restatements of existing models, the honest conclusion is that the space is well-trodden — state that rather than manufacturing novelty.
 
-Produce a structured research overview covering the research directions, their supporting hypotheses, and their justifications.
+Produce a structured research overview covering the directions, their closest existing models, their novelty, and their justifications.
 
 Response:"""
 

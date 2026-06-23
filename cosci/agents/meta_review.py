@@ -1,24 +1,16 @@
 """Meta-review agent: synthesizes system-wide feedback and final research overview."""
 from __future__ import annotations
 
-from cosci.agents.base import Results
+from cosci.agents.base import Results, passes_novelty_gate
 from cosci.memory import ContextMemory
 from cosci.models import Task, TaskType
 from cosci.prompts.reconstructed import META_SYSTEM_FEEDBACK, META_RESEARCH_OVERVIEW
 from cosci.prompts.render import render
 
 
-def passes_novelty_gate(h, min_novelty: float) -> bool:
-    """A hypothesis reaches the overview unless its own review verdicts condemn it.
-
-    Fails open: a hypothesis with no parsed novelty score is kept (we only drop on a
-    judgment we actually have), so runs predating the parsed verdicts are unaffected.
-    """
-    if h.verification == "invalidated":
-        return False
-    if h.novelty is not None and h.novelty < min_novelty:
-        return False
-    return True
+def _latest_full_review(memory: ContextMemory, hid: str) -> str:
+    fulls = [r for r in memory.reviews.get(hid, []) if r.type == "full"]
+    return fulls[-1].text if fulls else ""
 
 
 class MetaReviewAgent:
@@ -40,24 +32,35 @@ class MetaReviewAgent:
 
         if task.action == TaskType.GENERATE_FINAL_OVERVIEW:
             min_novelty = cfg.overview.min_novelty
-            ranked = sorted(
+            active = sorted(
                 memory.active_hypotheses(),
                 key=lambda h: h.elo_rating if h.elo_rating is not None else 0.0,
                 reverse=True,
             )
-            # Gate: only hypotheses whose own reviews did not condemn them as restatements
-            # (low novelty) or invalidated reach the synthesis. The criticism the model
-            # already wrote now has somewhere to land.
-            kept = [h for h in ranked if passes_novelty_gate(h, min_novelty)]
-            dropped = len(ranked) - len(kept)
+            # Defense-in-depth: low-novelty hypotheses are pruned at reflection (active=False),
+            # but re-apply the gate here so an active-but-condemned one can never slip in.
+            kept = [h for h in active if passes_novelty_gate(h, min_novelty)]
             chosen = kept[: cfg.overview.top_n]
+            # Excluded from the synthesis as restatements: pruned upstream + any caught here.
+            pruned_upstream = sum(1 for h in memory.hypotheses.values() if not h.active and h.pruned_reason)
+            excluded = pruned_upstream + (len(active) - len(kept))
 
-            body = "\n".join(f"{i + 1}. {h.text}" for i, h in enumerate(chosen))
-            if dropped:
+            # Tier 1: each surviving hypothesis carries its review into the synthesis, so the
+            # overview can name the closest existing model per direction instead of laundering it.
+            items = []
+            for i, h in enumerate(chosen):
+                nov = f" [novelty {int(h.novelty)}/10]" if h.novelty is not None else ""
+                item = f"{i + 1}. {h.text}{nov}"
+                review = _latest_full_review(memory, h.id)
+                if review:
+                    item += f"\n   Review (identifies the closest existing model): {review[:1200]}"
+                items.append(item)
+            body = "\n\n".join(items)
+
+            if excluded:
                 note = (
-                    f"NOTE: {dropped} of {len(ranked)} candidate hypotheses were excluded as "
-                    f"low-novelty (novelty below {min_novelty}/10 or verification invalidated) — "
-                    f"their own reviews judged them restatements of existing models. "
+                    f"NOTE: {excluded} candidate hypotheses were pruned as low-novelty restatements "
+                    f"of existing models and excluded from this synthesis. "
                 )
                 if not chosen:
                     note += (

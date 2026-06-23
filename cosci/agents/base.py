@@ -30,3 +30,14 @@ def parse_label(text: str, *labels: str) -> str | None:
                              text, re.IGNORECASE):
             best = m.group(1).strip().lower()
     return best
+
+
+def passes_novelty_gate(h: Hypothesis, min_novelty: float) -> bool:
+    """A hypothesis clears the gate unless its own review verdicts condemn it as a
+    restatement (novelty below ``min_novelty``) or invalidated. Fails open on a missing
+    novelty score, so a hypothesis is only dropped on a judgment we actually have."""
+    if h.verification == "invalidated":
+        return False
+    if h.novelty is not None and h.novelty < min_novelty:
+        return False
+    return True
