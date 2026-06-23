@@ -1,6 +1,7 @@
 import pytest
 from cosci.agents.generation import GenerationAgent
 from cosci.agents.base import Results
+from cosci.agents.text_utils import is_scaffolding
 from cosci.memory import ContextMemory
 from cosci.models import ResearchPlan, Task, AgentName, TaskType
 from cosci.config import load_config
@@ -92,6 +93,39 @@ _CONVERGED_BUNDLE = (
     "**Hypothesis 1: Alpha mechanism**\nDetails A.\n\n"
     "**Hypothesis 2: Beta mechanism**\nDetails B."
 )
+
+
+_SCAFFOLD = ("Since the research overview provided in the prompt was blank, I have reconstructed "
+             "the standard landscape. ### Analysis of the Research Landscape. Heavily Explored Directions: ...")
+
+
+@pytest.mark.asyncio
+async def test_generation_rejects_scaffolding_and_retries():
+    cfg = load_config("config.yaml")
+    mem = ContextMemory(research_plan=ResearchPlan(goal="g", preferences=["novel"]))
+    res = await GenerationAgent(strategies=["research_expansion"]).execute(
+        Task(agent=AgentName.GENERATION, action=TaskType.CREATE_INITIAL_HYPOTHESES),
+        mem, FakeLLM(lambda a, m: _SCAFFOLD), cfg)
+    assert res.new_hypotheses == []          # scaffolding rejected, retry also scaffolding -> nothing kept
+
+
+_MIXED_BUNDLE = (
+    "**Hypothesis 1: Real thermodynamic mechanism**\nCollapse at an entropy threshold.\n\n"
+    "**Hypothesis 2: Since the research overview provided in the prompt was blank I surveyed the field**\n"
+    "Heavily Explored Directions: a list.\n\n"
+    "**Hypothesis 3: Real gravitational mechanism**\nCollapse via self-energy."
+)
+
+
+@pytest.mark.asyncio
+async def test_generation_keeps_real_drops_scaffolding_in_a_bundle():
+    cfg = load_config("config.yaml")
+    mem = ContextMemory(research_plan=ResearchPlan(goal="g", preferences=["novel"]))
+    res = await GenerationAgent(strategies=["scientific_debate"]).execute(
+        Task(agent=AgentName.GENERATION, action=TaskType.CREATE_INITIAL_HYPOTHESES),
+        mem, FakeLLM(lambda a, m: _MIXED_BUNDLE), cfg)
+    assert len(res.new_hypotheses) == 2      # the two real proposals survive, the survey is dropped
+    assert all(not is_scaffolding(h.text) for h in res.new_hypotheses)
 
 
 @pytest.mark.asyncio

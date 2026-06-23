@@ -1,4 +1,32 @@
-from cosci.agents.text_utils import clean_title, split_atomic_hypotheses
+from cosci.agents.text_utils import clean_title, is_scaffolding, split_atomic_hypotheses
+
+# Real degenerate output (G6) and real preamble-but-valid hypotheses (G1, G5) from the
+# 2026-06-23 falsify run, abbreviated.
+G6_SCAFFOLD = ("Since the research overview provided in the prompt was blank, I have reconstructed "
+               "the standard landscape of foundational research regarding the physicality of "
+               "wavefunction collapse. ### Analysis of the Research Landscape **Heavily Explored "
+               "Directions:** 1. The Epistemic View (Copenhagen, QBism, Relational)")
+G1_REAL = ("Based on the objective of determining whether wavefunction collapse is a physical "
+           "process, and synthesizing the current discourse, I propose the following hypothesis.\n\n"
+           "### Proposed Hypothesis: The Spacetime-Metric Instability (SMI) Hypothesis\n\n"
+           "When a massive object exists in spatial superposition...")
+G5_REAL = ("### 1. Intermediate Assumptions and Conditional Reasoning\n\nTo determine if wavefunction "
+           "collapse is physical, we must first establish that unitary evolution is insufficient.\n\n"
+           "**Assumption 1:** The incompatibility of superposition and measurement.")
+
+
+def test_is_scaffolding_rejects_task_meta():
+    assert is_scaffolding(G6_SCAFFOLD) is True
+
+
+def test_is_scaffolding_keeps_real_hypotheses_with_preamble():
+    assert is_scaffolding(G1_REAL) is False     # real hypothesis, just opens with a preamble
+    assert is_scaffolding(G5_REAL) is False      # real assumption-chain hypothesis
+    assert is_scaffolding("Wavefunction collapse is a thermodynamic phase transition.") is False
+
+
+def test_clean_title_skips_based_on_preamble_to_real_title():
+    assert clean_title(G1_REAL) == "The Spacetime-Metric Instability (SMI) Hypothesis"
 
 # Real bundled debate output (abbreviated) that previously became ONE hypothesis
 # titled "I'll initiate this collaborative discourse...".

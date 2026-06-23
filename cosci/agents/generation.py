@@ -5,7 +5,7 @@ import re
 
 from cosci import run_log
 from cosci.agents.base import Results
-from cosci.agents.text_utils import clean_title, split_atomic_hypotheses
+from cosci.agents.text_utils import clean_title, is_scaffolding, split_atomic_hypotheses
 from cosci.memory import ContextMemory
 from cosci.models import AgentName, Hypothesis, Origin, Task, TaskType
 from cosci.prompts.reconstructed import GEN_ITERATIVE_ASSUMPTIONS, GEN_RESEARCH_EXPANSION
@@ -70,32 +70,27 @@ class GenerationAgent:
                                  articles=articles_block.count("URL:"))
             else:
                 articles_block = ""
-            rendered = render(
-                template,
-                goal=goal,
-                preferences=preferences,
-                instructions=instructions,
-                idea_attributes="novel",
-                source_hypothesis="",
-                articles_with_reasoning=articles_block,
-                reviews_overview="",
-                transcript="",
-                research_overview="",
-            )
-            response = await llm.complete("generation", [{"role": "user", "content": rendered}])
+            chunks = await self._gen_chunks(strategy, template, rendered_vars=dict(
+                goal=goal, preferences=preferences, instructions=instructions,
+                articles_with_reasoning=articles_block), llm=llm)
 
-            # Split a response that bundles several numbered proposals into atomic
-            # hypotheses so each is reviewed, ranked, and cited on its own. The debate
-            # strategy first resolves its "HYPOTHESIS" convergence marker (if any),
-            # so a deliberation that weighed several candidates collapses to the final
-            # idea rather than being split into the candidates.
-            raw = response.strip()
-            if strategy == "scientific_debate":
-                chunks = _debate_chunks(raw)
-            else:
-                chunks = split_atomic_hypotheses(raw)
+            # Generation hygiene: drop chunks that are task meta-commentary / surveys /
+            # refusals rather than hypotheses (they otherwise top the rankings and the
+            # novelty scorer rates them most novel). Regenerate once if a strategy yields
+            # nothing usable, then accept fewer-but-clean hypotheses.
+            clean = [c for c in chunks if not is_scaffolding(c)]
+            rejected = len(chunks) - len(clean)
+            if not clean:
+                run_log.emit("generation_retry", tick=memory.tick, strategy=strategy)
+                retry = await self._gen_chunks(strategy, template, rendered_vars=dict(
+                    goal=goal, preferences=preferences, instructions=instructions,
+                    articles_with_reasoning=articles_block), llm=llm)
+                clean = [c for c in retry if not is_scaffolding(c)]
+                rejected += len(retry) - len(clean)
+            if rejected:
+                run_log.emit("generation_rejected", tick=memory.tick, strategy=strategy, scaffolding=rejected)
 
-            for chunk in chunks:
+            for chunk in clean:
                 h = Hypothesis(
                     id=memory.new_id("G"),
                     title=clean_title(chunk),
@@ -109,6 +104,21 @@ class GenerationAgent:
                 follow_ups.append(
                     Task(agent=AgentName.REFLECTION, action=TaskType.REVIEW_HYPOTHESIS, target_id=h.id)
                 )
-            run_log.emit("generation_done", tick=memory.tick, strategy=strategy, hypotheses=len(chunks))
+            run_log.emit("generation_done", tick=memory.tick, strategy=strategy, hypotheses=len(clean))
 
         return Results(new_hypotheses=new_hypotheses, follow_ups=follow_ups)
+
+    async def _gen_chunks(self, strategy, template, rendered_vars, llm) -> list[str]:
+        """One generation call for a strategy -> atomic hypothesis chunks (pre-hygiene)."""
+        rendered = render(
+            template,
+            idea_attributes="novel",
+            source_hypothesis="",
+            reviews_overview="",
+            transcript="",
+            research_overview="",
+            **rendered_vars,
+        )
+        response = await llm.complete("generation", [{"role": "user", "content": rendered}])
+        raw = response.strip()
+        return _debate_chunks(raw) if strategy == "scientific_debate" else split_atomic_hypotheses(raw)

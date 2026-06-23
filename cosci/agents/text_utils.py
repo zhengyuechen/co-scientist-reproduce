@@ -21,10 +21,35 @@ _PREAMBLE_RE = re.compile(
     r"i['’]?(?:ll|m|d|ve)\b|i \b(?:will|am|would|propose|present|offer|suggest)\b|"
     r"let(?:'s| me| us)\b|here (?:is|are)\b|below\b|the following\b|allow me\b|"
     r"sure\b|certainly\b|okay\b|ok\b|of course\b|as (?:a |an |the |my )|"
-    r"to (?:begin|start|address|propose)\b|first,|we (?:propose|present|begin|will)\b"
+    r"to (?:begin|start|address|propose|determine|investigate|evaluate|explore|understand|answer|assess)\b|"
+    r"first,|we (?:propose|present|begin|will|must)\b|"
+    r"based on\b|given (?:the|that|a)\b|since (?:the|we|it|a)\b|synthesi[sz]ing\b|"
+    r"drawing on\b|building on\b|in (?:order|response|light) (?:to|of)\b|"
+    r"this (?:hypothesis|proposal|section|analysis)\b"
     r")",
     re.IGNORECASE,
 )
+
+# Task-meta markers a real scientific hypothesis never contains: it talks about the
+# prompt, surveys the field, or refuses. Designed against observed degenerate outputs
+# (e.g. "Since the research overview provided in the prompt was blank, I have reconstructed
+# the landscape...") — deliberately narrow so a real hypothesis with a preamble is NOT caught.
+_SCAFFOLDING_RE = re.compile(
+    r"(provided in the prompt|research overview provided|the prompt (?:was|is) (?:blank|empty)|"
+    r"reconstructed the (?:standard )?landscape|standard landscape of \w+ research|"
+    r"analysis of the research landscape|heavily explored directions|"
+    r"current boundaries of the field|landscape of foundational research|"
+    r"\bas an ai\b|i (?:cannot|can't|am unable|'m unable) )",
+    re.IGNORECASE,
+)
+
+
+def is_scaffolding(text: str) -> bool:
+    """True if the text is meta-commentary about the task, a literature survey, or a refusal
+    rather than an actual scientific hypothesis. Narrow by design: it keys on phrases a real
+    hypothesis never uses ('provided in the prompt', 'reconstructed the landscape'), so a
+    genuine hypothesis that merely opens with a preamble is not rejected."""
+    return bool(_SCAFFOLDING_RE.search(text[:700]))
 
 # Label prefixes attached to a title, e.g. "Proposed Hypothesis:", "Hypothesis 2 -".
 _LABEL_RE = re.compile(
