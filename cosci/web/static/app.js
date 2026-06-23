@@ -21,6 +21,8 @@ let eloChart = null;
 let poller = null;
 let timer = null;
 let runStartedAt = null;
+let logRunId = null;
+let logCursor = 0;
 
 /* ── views ─────────────────────────────────────────────── */
 function showView(name) {
@@ -73,6 +75,7 @@ async function selectRun(id) {
   renderHypotheses(run.hypotheses || []);
   renderTournament(run.tournament || []);
   renderEloChart(run.elo_trajectory || []);
+  loadEventsFor(id, true);          // show this run's recorded activity timeline
   showView("results");
 }
 
@@ -169,6 +172,54 @@ function renderEloChart(traj) {
   }
 }
 
+/* ── live event log ────────────────────────────────────── */
+function clip(s, n) { s = String(s == null ? "" : s); return s.length > n ? s.slice(0, n - 1) + "…" : s; }
+
+// Map each event to [category, one-line summary]. Category drives the dot colour.
+function eventSummary(e) {
+  const f = e;
+  switch (e.event) {
+    case "run_started":        return ["run",    `started · ${clip(f.goal, 36)} (${f.mode || ""})`];
+    case "run_done":           return ["done",   `complete · ${f.hypotheses} hypotheses, ${f.matches} matches`];
+    case "run_aborted":        return ["abort",  `aborted · ${f.reason || "safety review"}`];
+    case "run_error":          return ["error",  `failed · ${clip(f.error, 60)}`];
+    case "task":               return ["task",   `${f.agent} · ${f.action}${f.target ? " " + f.target : ""}`];
+    case "snapshot":           return ["task",   "snapshot saved"];
+    case "generation_started": return ["gen",    `generating · ${f.strategy}`];
+    case "generation_done":    return ["gen",    `${f.strategy} → ${f.hypotheses} hyp`];
+    case "grounding_search":   return ["search", `${f.backend} ← ${clip(f.query, 32)}`];
+    case "grounding_result":   return [f.articles > 0 ? "search" : "warn", `${f.articles} article${f.articles === 1 ? "" : "s"} retrieved`];
+    case "reflection_started": return ["review", `reviewing ${f.hypothesis_id}`];
+    case "reflection_done":    return [f.grounded ? "review" : "warn", `${f.hypothesis_id} · ${f.grounded ? "grounded" : "ungrounded"} · ${f.safety}`];
+    case "ranking_match":      return ["match",  `${f.a} vs ${f.b} → ${f.winner} (${f.elo_delta >= 0 ? "+" : ""}${f.elo_delta})`];
+    case "evolution_done":     return ["evolve", `${(f.parents || []).join(" + ")} → ${f.child}`];
+    default:                   return ["task",   e.event];
+  }
+}
+
+function appendEvents(events) {
+  const log = $("#event-log");
+  const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 24;
+  for (const e of events) {
+    const [cat, text] = eventSummary(e);
+    const li = el("li", "event-row");
+    li.appendChild(el("span", "event-tick", e.tick != null ? `t${e.tick}` : "·"));
+    li.appendChild(el("span", `event-dot ${cat}`));
+    li.appendChild(el("span", "event-text", text));
+    log.appendChild(li);
+  }
+  if (atBottom) log.scrollTop = log.scrollHeight;   // autoscroll only when already at the bottom
+}
+
+async function loadEventsFor(runId, reset) {
+  if (reset) { logRunId = runId; logCursor = 0; $("#event-log").replaceChildren(); }
+  if (logRunId !== runId) return;                    // user navigated away — don't clobber the view
+  let body;
+  try { body = await api.get(`/api/runs/${runId}/events?since=${logCursor}`); } catch (e) { return; }
+  if (body.events && body.events.length) { appendEvents(body.events); logCursor = body.next; }
+  $("#log-meta").textContent = logCursor ? `${logCursor} events` : "no events yet";
+}
+
 /* ── launch + poll ─────────────────────────────────────── */
 function formatElapsed(ms) {
   const total = Math.max(0, Math.floor(ms / 1000));
@@ -216,12 +267,14 @@ async function launchRun(e) {
     stopTimer("failed after");
     btn.disabled = false; return;
   }
+  loadEventsFor(runId, true);            // fresh activity timeline for the new run
   if (poller) clearInterval(poller);
   poller = setInterval(() => pollStatus(runId, btn), 1500);
   pollStatus(runId, btn);
 }
 
 async function pollStatus(runId, btn) {
+  loadEventsFor(runId, false);           // tail new events each poll (incremental)
   let s;
   try { s = await api.get(`/api/runs/${runId}/status`); } catch (e) { return; }
   const status = $("#run-status");
