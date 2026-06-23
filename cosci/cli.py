@@ -38,12 +38,14 @@ async def run_cli(
     mode: str = "continuous",
     results_base: str = "results",
     timestamp: str,
-) -> tuple[str, ContextMemory]:
+) -> tuple[str | None, ContextMemory]:
     mem = ContextMemory()
     agents = build_agents(cfg, grounding)
     overview = await run_engine(goal, mem, llm, cfg, agents, mode=mode)
+    if overview is None:           # unsafe-goal abort -> no results written
+        return None, mem
     out = make_run_dir(results_base, goal, timestamp)
-    write_results(mem, overview or "", out)
+    write_results(mem, overview, out)
     return out, mem
 
 
@@ -78,12 +80,14 @@ def main(argv=None) -> int:
     cfg = load_config(args.config)
 
     if not is_faithful_grounding(cfg):
-        print(
-            "Warning: grounding backend is arXiv-only (not the broad web search used in the paper). "
-            "Fidelity is reduced. Set backend=tavily in config.yaml and WEB_SEARCH_API_KEY for "
-            "faithful grounding.",
-            file=sys.stderr,
-        )
+        backend = cfg.grounding.backend
+        if backend == "none":
+            print("Warning: grounding is disabled (parametric only) — no literature retrieval; "
+                  "agents rely on the model's built-in knowledge. Fidelity is reduced.", file=sys.stderr)
+        else:  # arxiv
+            print("Warning: grounding is arXiv-only (not the broad web search used in the paper). "
+                  "Fidelity is reduced. Set backend=tavily in config.yaml + WEB_SEARCH_API_KEY for "
+                  "faithful grounding.", file=sys.stderr)
 
     from cosci.llm import OpenRouterClient
     llm = OpenRouterClient(cfg)
@@ -92,6 +96,9 @@ def main(argv=None) -> int:
 
     out, mem = asyncio.run(run_cli(args.goal, cfg, llm, grounding=grounding,
                                    mode=args.mode, results_base=args.results_dir, timestamp=ts))
+    if out is None:
+        print("Run aborted: the research goal did not pass the safety review.", file=sys.stderr)
+        return 2
     print(f"Results written to {out}")
     print(summary_line(mem))
     return 0

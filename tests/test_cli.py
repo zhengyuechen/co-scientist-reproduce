@@ -26,3 +26,12 @@ async def test_run_cli_writes_results(tmp_path):
     assert os.path.isfile(os.path.join(out, "research_overview.md"))
     assert os.path.isfile(os.path.join(out, "elo_trajectory.csv"))
     assert "Overview text." in open(os.path.join(out, "research_overview.md")).read()
+
+@pytest.mark.asyncio
+async def test_run_cli_unsafe_goal_writes_no_results(tmp_path):
+    cfg = load_config("config.yaml")
+    llm = FakeLLM(lambda a, m: "dangerous\nsafety: unsafe")  # goal safety-gate -> unsafe -> abort
+    out, _mem = await run_cli("bioweapon", cfg, llm, grounding=None,
+                              results_base=str(tmp_path), timestamp="2026-06-22_120000")
+    assert out is None
+    assert list(tmp_path.iterdir()) == []   # nothing written on abort

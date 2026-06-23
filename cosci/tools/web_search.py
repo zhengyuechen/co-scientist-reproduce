@@ -2,7 +2,8 @@
 
 NOTE: This backend layer is OURS — the paper used broad web search (Tavily / Google).
       arXiv-only is a deliberate fidelity compromise: free, no key required, but
-      limited to preprints. Use a Tavily/Serper/Brave backend for faithful grounding.
+      limited to preprints.
+Backends: arXiv (default, free), none, or Tavily (web search, needs WEB_SEARCH_API_KEY)
 """
 from __future__ import annotations
 
