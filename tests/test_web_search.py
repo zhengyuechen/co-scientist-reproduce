@@ -23,6 +23,28 @@ async def test_arxiv_backend_parses_injected_client():
     assert [a.title for a in arts] == ["a", "b"]
     assert arts[0].summary == "abs a" and arts[0].url == "http://x/a"
 
+class _FlakyClient:
+    def __init__(self, fail_times): self.fail_times = fail_times; self.calls = 0
+    def results(self, search):
+        self.calls += 1
+        if self.calls <= self.fail_times:
+            raise RuntimeError("Page request resulted in HTTP 429")
+        return [_FakeResult("a")]
+
+@pytest.mark.asyncio
+async def test_arxiv_backend_retries_then_succeeds():
+    fake = _FlakyClient(fail_times=1)
+    arts = await ArxivBackend(client=fake, retries=1, backoff=0).search("q", max_results=1)
+    assert fake.calls == 2  # initial attempt + one gentle retry
+    assert [a.title for a in arts] == ["a"]
+
+@pytest.mark.asyncio
+async def test_arxiv_backend_raises_after_exhausting_retries():
+    fake = _FlakyClient(fail_times=5)
+    with pytest.raises(RuntimeError):
+        await ArxivBackend(client=fake, retries=1, backoff=0).search("q", max_results=1)
+    assert fake.calls == 2  # gives up after initial + 1 retry, then safe_search degrades to ""
+
 @pytest.mark.asyncio
 async def test_arxiv_backend_uses_small_page_size(monkeypatch):
     created = []

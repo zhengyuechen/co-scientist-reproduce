@@ -61,9 +61,11 @@ async def safe_search(backend, query: str, max_results: int = 5) -> str:
 
 
 class ArxivBackend:
-    def __init__(self, client=None, page_size_cap: int = 10):
+    def __init__(self, client=None, page_size_cap: int = 10, retries: int = 1, backoff: float = 3.0):
         self._client = client
         self._page_size_cap = page_size_cap
+        self._retries = retries          # gentle outer retries on top of arxiv.Client's own
+        self._backoff = backoff          # seconds; grows linearly per attempt
 
     async def search(self, query: str, max_results: int = 5) -> list[Article]:
         import arxiv
@@ -72,7 +74,21 @@ class ArxivBackend:
             self._client = arxiv.Client(page_size=page_size)
 
         search = arxiv.Search(query=query, max_results=max_results)
-        results = await asyncio.to_thread(list, self._client.results(search))
+        # One gentle retry with backoff lets a transient rate-limit (HTTP 429) recover
+        # before we give up; exhausting it raises, and safe_search marks the run ungrounded.
+        attempt = 0
+        while True:
+            try:
+                results = await asyncio.to_thread(list, self._client.results(search))
+                break
+            except Exception as exc:
+                if attempt >= self._retries:
+                    raise
+                wait = self._backoff * (attempt + 1)
+                log.warning("arXiv search failed (%s); gentle retry %d/%d after %.0fs",
+                            exc, attempt + 1, self._retries, wait)
+                attempt += 1
+                await asyncio.sleep(wait)
         return [
             Article(
                 title=r.title,
