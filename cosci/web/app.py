@@ -30,7 +30,6 @@ from cosci.models import AgentName
 from cosci.tools.web_search import build_backend, is_faithful_grounding
 
 STATIC = Path(__file__).parent / "static"
-SNAP_BASE = "snapshots"
 
 
 def _build_agents(grounding) -> dict:
@@ -54,7 +53,7 @@ async def execute_run(run_id, goal, mode, cfg, llm, grounding, registry, results
     rec = registry[run_id]
     rec["status"] = "running"
     try:
-        Path(SNAP_BASE).mkdir(parents=True, exist_ok=True)
+        Path(rec["snapshot"]).parent.mkdir(parents=True, exist_ok=True)
         mem = ContextMemory()
         agents = _build_agents(grounding)
         overview = await run_engine(goal, mem, llm, cfg, agents, mode=mode, snapshot_path=rec["snapshot"])
@@ -177,7 +176,7 @@ def create_app(llm_factory=default_llm_factory, config_path="config.yaml", resul
             ts, n = f"{base_ts}-{n}", n + 1
         run_id = f"{ts}_{slug}"
         registry[run_id] = {"status": "queued", "goal": goal, "error": None,
-                            "snapshot": str(Path(SNAP_BASE) / f"{run_id}.json")}
+                            "snapshot": str(Path(results_base) / ".snapshots" / f"{run_id}.json")}
         asyncio.create_task(
             execute_run(run_id, goal, mode, cfg, llm, grounding, registry, results_base, ts)
         )
