@@ -81,6 +81,17 @@ def test_launch_endpoint_returns_run_id(env):
     r = c.post("/api/runs", json={"goal": "cure X", "mode": "continuous"})
     assert r.status_code == 200 and r.json()["run_id"].endswith("cure-x")
     assert c.post("/api/runs", json={"goal": ""}).status_code == 400  # empty goal rejected
+    assert c.post("/api/runs", json={"goal": "cure X", "mode": "bogus"}).status_code == 400  # bad mode rejected
+
+
+def test_same_goal_launches_get_distinct_run_ids(env):
+    c = _client(env)
+    cfg = c.get("/api/config").json()["config"]
+    cfg["grounding"]["backend"] = "none"
+    c.put("/api/config", json=cfg)
+    id1 = c.post("/api/runs", json={"goal": "cure X"}).json()["run_id"]
+    id2 = c.post("/api/runs", json={"goal": "cure X"}).json()["run_id"]
+    assert id1 != id2  # no collision even within the same second
 
 
 @pytest.mark.asyncio

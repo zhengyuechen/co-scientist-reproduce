@@ -113,6 +113,13 @@ function renderTournament(matches) {
 
 function renderEloChart(traj) {
   const ctx = $("#elo-chart");
+  if (typeof Chart === "undefined") {
+    const c = ctx.getContext("2d");
+    c.clearRect(0, 0, ctx.width, ctx.height);
+    c.font = "12px IBM Plex Mono"; c.fillStyle = "#69798a"; c.textAlign = "center";
+    c.fillText("Chart library unavailable.", ctx.width / 2, ctx.height / 2);
+    return;
+  }
   if (eloChart) eloChart.destroy();
   const ink = "#13212e", line = "#2563a0", grid = "rgba(18,58,94,0.10)", mono = "IBM Plex Mono";
   eloChart = new Chart(ctx, {

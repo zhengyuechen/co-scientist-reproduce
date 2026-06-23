@@ -160,14 +160,22 @@ def create_app(llm_factory=default_llm_factory, config_path="config.yaml", resul
         if not goal:
             raise HTTPException(400, "a research goal is required")
         mode = body.get("mode", "continuous")
+        if mode not in ("continuous", "round_based"):
+            raise HTTPException(400, f"invalid mode '{mode}' (use 'continuous' or 'round_based')")
         cfg = load_config(config_path)
         try:
             llm = llm_factory(cfg)
         except Exception as exc:
             raise HTTPException(400, str(exc))
         grounding = build_backend(cfg)
-        ts = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-        run_id = f"{ts}_{slugify(goal)}"
+        # Unique run id even for same-goal launches within the same second. Race-free:
+        # no await between this check and the registry insert below (single event loop).
+        base_ts = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+        slug = slugify(goal)
+        ts, n = base_ts, 2
+        while f"{ts}_{slug}" in registry or (Path(results_base) / f"{ts}_{slug}").is_dir():
+            ts, n = f"{base_ts}-{n}", n + 1
+        run_id = f"{ts}_{slug}"
         registry[run_id] = {"status": "queued", "goal": goal, "error": None,
                             "snapshot": str(Path(SNAP_BASE) / f"{run_id}.json")}
         asyncio.create_task(
