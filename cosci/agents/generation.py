@@ -16,7 +16,7 @@ _STRATEGY_PROMPT = {
     "research_expansion": GEN_RESEARCH_EXPANSION,
 }
 
-_DEFAULT_STRATEGIES = ["literature_review", "scientific_debate"]
+_DEFAULT_STRATEGIES = ["literature_review", "scientific_debate", "iterative_assumptions", "research_expansion"]
 
 
 class GenerationAgent:

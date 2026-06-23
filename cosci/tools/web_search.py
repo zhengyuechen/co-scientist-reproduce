@@ -33,11 +33,18 @@ class WebSearchBackend(Protocol):
 def format_articles(articles: list[Article]) -> str:
     if not articles:
         return ""
-    blocks = [
-        f"- {a.title} ({a.published}) [{a.url}]\n  {a.summary}"
-        for a in articles
-    ]
-    return "\n".join(blocks)
+    blocks = []
+    for i, a in enumerate(articles, start=1):
+        label = f"[A{i}]"
+        blocks.append(
+            f"{label} {a.title} ({a.published})\n"
+            f"URL: {a.url}\n"
+            f"Summary: {a.summary}"
+        )
+    return (
+        "Use these source labels when citing retrieved literature; cite claims as [A1], [A2], etc.\n"
+        + "\n\n".join(blocks)
+    )
 
 
 async def safe_search(backend, query: str, max_results: int = 5) -> str:

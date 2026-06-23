@@ -18,7 +18,8 @@ class ReflectionAgent:
         hypothesis = memory.get(hid)
 
         # --- Full review --- (grounding failures degrade to parametric, never crash the run)
-        articles_block = await safe_search(self.grounding, hypothesis.text[:300])
+        grounding_query = f"{memory.research_plan.goal} {hypothesis.title}".strip()
+        articles_block = await safe_search(self.grounding, grounding_query)
         full_prompt = render(
             REFLECT_FULL,
             goal=memory.research_plan.goal,
@@ -26,6 +27,12 @@ class ReflectionAgent:
             articles_with_reasoning=articles_block,
         )
         full_response = await llm.complete("reflection", [{"role": "user", "content": full_prompt}])
+        if articles_block:
+            full_response = (
+                f"{full_response.rstrip()}\n\n"
+                "Grounding sources provided to reviewer:\n"
+                f"{articles_block}"
+            )
 
         safety_verdict = parse_label(full_response, "safety")
         if safety_verdict == "unsafe":

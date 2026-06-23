@@ -92,13 +92,13 @@ Literature review and analytical rationale (chronologically ordered, beginning w
 {articles_with_reasoning}
 
 Instructions:
-1. Correctness: evaluate whether the hypothesis is logically sound and consistent with the provided literature. Cite the specific articles that support or contradict it.
+1. Correctness: evaluate whether the hypothesis is logically sound and consistent with the provided literature. Cite the specific articles that support or contradict it using their bracket labels, e.g. [A1].
 2. Novelty: evaluate whether the hypothesis is novel relative to the provided literature, distinguishing genuinely new claims from those already established.
 3. Grounding: for each major claim, identify the supporting or refuting evidence among the provided articles, and note where evidence is missing.
-4. References: list the articles you relied on in reaching your assessment.
+4. References: list every article you relied on using its bracket label, title, and URL. If no provided article supports a claim, explicitly say "no provided source".
 5. Safety: assess whether pursuing the hypothesis could be unethical or unsafe.
 
-Provide your novelty and correctness assessments with supporting references, then conclude with "safety: <safe or unsafe>" and a brief reason."""
+Provide your novelty and correctness assessments with supporting references. Include a "References used" section with the cited bracket labels, then conclude with "safety: <safe or unsafe>" and a brief reason."""
 
 # RECONSTRUCTED — not from SM. Methods intent: Decompose hypothesis into core + sub-assumptions, evaluate each independently for plausibility.
 # Recreates: Methods "deep verification review" (Methods pp.26-27); SN8 ReviewHypothesis "break down into core assumptions" one-liner; SN10.6/10.7 examples. No prompt published in SN9.

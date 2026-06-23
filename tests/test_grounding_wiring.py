@@ -41,11 +41,14 @@ async def test_reflection_grounds_full_review_on_hypothesis():
     await ReflectionAgent(grounding=backend).execute(
         Task(agent=AgentName.REFLECTION, action=TaskType.REVIEW_HYPOTHESIS, target_id="G1"),
         mem, FakeLLM(router), cfg)
-    assert backend.queries and backend.queries[0].startswith("some hypothesis")
+    assert backend.queries == ["g T"]
     assert any("Paper1" in p for p in captured["prompts"])
+    assert any("[A1]" in p for p in captured["prompts"])
     # full review must be marked tool_grounded when grounding returned articles
     full_reviews = [r for r in mem.reviews["G1"] if r.type == "full"]
     assert full_reviews and full_reviews[0].tool_grounded is True
+    assert "Grounding sources provided to reviewer" in full_reviews[0].text
+    assert "[A1] Paper1" in full_reviews[0].text
 
 @pytest.mark.asyncio
 async def test_generation_no_backend_still_works():

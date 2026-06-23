@@ -10,6 +10,7 @@ def test_format_articles_empty_and_nonempty():
     assert format_articles([]) == ""
     out = format_articles([Article(title="T", summary="S", url="u", published="2024")])
     assert "T" in out and "S" in out and "u" in out and "2024" in out
+    assert "[A1]" in out and "cite claims as [A1]" in out
 
 class _FakeResult:
     def __init__(self, t): self.title=t; self.summary="abs "+t; self.entry_id="http://x/"+t; self.published="2024-01-01"
