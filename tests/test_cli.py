@@ -21,8 +21,8 @@ def test_parse_args_defaults():
 @pytest.mark.asyncio
 async def test_run_cli_writes_results(tmp_path):
     cfg = load_config("config.yaml"); cfg.budget.max_ideas = 2; cfg.budget.max_matches_per_idea = 1
-    out = await run_cli("cure X", cfg, FakeLLM(_router), grounding=None,
-                        results_base=str(tmp_path), timestamp="2026-06-22_120000")
+    out, _mem = await run_cli("cure X", cfg, FakeLLM(_router), grounding=None,
+                              results_base=str(tmp_path), timestamp="2026-06-22_120000")
     assert os.path.isfile(os.path.join(out, "research_overview.md"))
     assert os.path.isfile(os.path.join(out, "elo_trajectory.csv"))
     assert "Overview text." in open(os.path.join(out, "research_overview.md")).read()

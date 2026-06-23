@@ -38,13 +38,13 @@ async def run_cli(
     mode: str = "continuous",
     results_base: str = "results",
     timestamp: str,
-) -> str:
+) -> tuple[str, ContextMemory]:
     mem = ContextMemory()
     agents = build_agents(cfg, grounding)
     overview = await run_engine(goal, mem, llm, cfg, agents, mode=mode)
     out = make_run_dir(results_base, goal, timestamp)
     write_results(mem, overview or "", out)
-    return out
+    return out, mem
 
 
 def parse_args(argv=None) -> argparse.Namespace:
@@ -90,20 +90,9 @@ def main(argv=None) -> int:
     grounding = build_backend(cfg)
     ts = datetime.now().strftime("%Y-%m-%d_%H%M%S")
 
-    mem_ref: list[ContextMemory] = []
-
-    async def _run():
-        mem = ContextMemory()
-        mem_ref.append(mem)
-        agents = build_agents(cfg, grounding)
-        overview = await run_engine(args.goal, mem, llm, cfg, agents, mode=args.mode)
-        out = make_run_dir(args.results_dir, args.goal, ts)
-        write_results(mem, overview or "", out)
-        return out
-
-    out = asyncio.run(_run())
-    mem = mem_ref[0]
-    print(out)
+    out, mem = asyncio.run(run_cli(args.goal, cfg, llm, grounding=grounding,
+                                   mode=args.mode, results_base=args.results_dir, timestamp=ts))
+    print(f"Results written to {out}")
     print(summary_line(mem))
     return 0
 
