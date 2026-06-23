@@ -82,15 +82,13 @@ async def _run_one(sup: Supervisor, lock: asyncio.Lock, task: Task,
 
 
 async def _drain_review_chain(sup: Supervisor, lock: asyncio.Lock, follow_ups: list[Task],
-                              memory: ContextMemory, llm: LLMClient, cfg: Config,
-                              _depth: int = 0) -> None:
-    """Drain REVIEW_HYPOTHESIS and ADD_TO_TOURNAMENT follow-ups recursively.
+                              memory: ContextMemory, llm: LLMClient, cfg: Config) -> None:
+    """Drain REVIEW_HYPOTHESIS and ADD_TO_TOURNAMENT follow-ups in two flat passes.
 
-    Bounded to max depth 4 to prevent runaway chains. Mirrors what the continuous
-    queue does automatically.
+    Bounded by construction: reflection only ever emits ADD_TO_TOURNAMENT follow-ups
+    (never another REVIEW_HYPOTHESIS), so this two-pass loop cannot recurse or grow
+    unboundedly — no depth guard is needed.
     """
-    if _depth >= 4:
-        return
     tourn_tasks: list[Task] = []
     for ft in follow_ups:
         if ft.action == TaskType.REVIEW_HYPOTHESIS:
