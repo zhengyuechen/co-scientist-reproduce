@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Co-Scientist</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"
+          integrity="sha384-9nhczxUqK87bcKHh20fSQcTGD4qq5GhayNYSYWqwBkINBhOfQLg/P5HG5lF1urn4"
+          crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header class="masthead">
+    <div class="brand">
+      <h1>Co&#183;Scientist</h1>
+      <p class="tagline">Multi-agent hypothesis engine &mdash; a reproduction of Gottweis&nbsp;et&nbsp;al.,
+        <span class="cite">Accelerating scientific discovery with Co-Scientist</span>, Nature&nbsp;(2026)</p>
+    </div>
+    <div class="masthead-meta" id="grounding-badge" title="Literature grounding backend"></div>
+  </header>
+
+  <main class="layout">
+    <aside class="sidebar">
+      <section class="panel">
+        <p class="eyebrow">Experiment</p>
+        <h2 class="panel-title">New run</h2>
+        <form id="run-form" autocomplete="off">
+          <label class="field">
+            <span class="field-label">Research goal</span>
+            <textarea id="goal" rows="4" placeholder="e.g. Identify novel epigenetic targets for liver fibrosis"></textarea>
+          </label>
+          <label class="field">
+            <span class="field-label">Engine mode</span>
+            <select id="mode">
+              <option value="continuous">continuous</option>
+              <option value="round_based">round_based</option>
+            </select>
+          </label>
+          <button type="submit" id="run-btn" class="btn-primary">Run experiment</button>
+        </form>
+        <div id="run-status" class="run-status" hidden></div>
+      </section>
+
+      <section class="panel">
+        <p class="eyebrow">Archive</p>
+        <h2 class="panel-title">Runs</h2>
+        <ul id="runs-list" class="runs-list"></ul>
+      </section>
+
+      <nav class="panel panel-nav">
+        <button id="nav-config" class="nav-link" type="button">Configuration &rarr;</button>
+      </nav>
+    </aside>
+
+    <section class="content">
+      <!-- empty state -->
+      <div id="view-welcome" class="view view-welcome">
+        <p class="eyebrow">Readout</p>
+        <h2 class="welcome-title">An instrument for hypothesis evolution.</h2>
+        <p class="welcome-body">Define a research goal and run the engine. It generates hypotheses,
+          grounds and reviews them, ranks them through an Elo tournament of simulated scientific
+          debates, evolves the strongest, and synthesizes an overview. Select a run from the archive,
+          or start a new one.</p>
+        <p class="welcome-note">Quality is a measured quantity here: the Elo trajectory rises as the
+          system spends more compute &mdash; the paper's central result, plotted live.</p>
+      </div>
+
+      <!-- results -->
+      <article id="view-results" class="view" hidden>
+        <header class="result-head">
+          <p class="eyebrow" id="result-id"></p>
+          <h2 class="result-goal" id="result-goal"></h2>
+        </header>
+
+        <section class="block">
+          <h3 class="block-title">Research overview</h3>
+          <div class="overview prose" id="overview"></div>
+        </section>
+
+        <section class="block">
+          <h3 class="block-title">Elo trajectory</h3>
+          <p class="block-note">Best hypothesis rating vs. tournament matches &mdash; quality vs. compute.</p>
+          <div class="plot-frame"><canvas id="elo-chart"></canvas></div>
+        </section>
+
+        <section class="block">
+          <h3 class="block-title">Hypotheses <span class="count" id="hyp-count"></span></h3>
+          <table class="data-table" id="hyp-table">
+            <thead><tr><th>#</th><th>id</th><th class="num">Elo</th><th>safety</th><th>origin</th><th>title</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </section>
+
+        <section class="block">
+          <h3 class="block-title">Tournament <span class="count" id="match-count"></span></h3>
+          <table class="data-table" id="match-table">
+            <thead><tr><th>match</th><th>mode</th><th>winner</th><th class="num">&Delta;Elo</th><th>loser</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </section>
+      </article>
+
+      <!-- config -->
+      <form id="view-config" class="view" hidden>
+        <header class="result-head">
+          <p class="eyebrow">Parameters</p>
+          <h2 class="result-goal">Configuration</h2>
+          <p class="block-note">Edit and save <code>config.yaml</code>. Values flagged <span class="prov">OURS</span>
+            are our defaults where the supplement is silent; <span class="prov sm">SM</span> values come from the paper.</p>
+        </header>
+        <div id="config-groups"></div>
+        <div class="config-actions">
+          <button type="submit" id="config-save" class="btn-primary">Save configuration</button>
+          <span id="config-msg" class="config-msg"></span>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <script src="/static/app.js" defer></script>
+</body>
+</html>

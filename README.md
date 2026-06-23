@@ -52,6 +52,17 @@ and runs locally.
 
 ## Running
 
+### Web interface
+
+Set `OPENROUTER_API_KEY`, then:
+
+```
+python -m cosci.web        # then open http://127.0.0.1:8000
+```
+
+Edit the configuration, launch a run from a research goal (progress streams live), and read
+the results — the ranked hypotheses, the tournament, and the Elo trajectory plotted as it climbs.
+
 ### Run from the command line
 
 Set `OPENROUTER_API_KEY`, then:
