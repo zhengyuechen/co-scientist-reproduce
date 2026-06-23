@@ -7,7 +7,7 @@ from cosci.models import AgentName, Hypothesis, Origin, Task, TaskType
 from cosci.prompts.reconstructed import GEN_ITERATIVE_ASSUMPTIONS, GEN_RESEARCH_EXPANSION
 from cosci.prompts.render import assemble_instructions, render
 from cosci.prompts.verbatim import GEN_DEBATE, GEN_LITERATURE
-from cosci.tools.web_search import format_articles
+from cosci.tools.web_search import safe_search
 
 _STRATEGY_PROMPT = {
     "literature_review": GEN_LITERATURE,
@@ -34,9 +34,8 @@ class GenerationAgent:
 
         for strategy in self.strategies:
             template = _STRATEGY_PROMPT[strategy]
-            if strategy == "literature_review" and self.grounding is not None:
-                articles = await self.grounding.search(goal, max_results=5)
-                articles_block = format_articles(articles)
+            if strategy == "literature_review":
+                articles_block = await safe_search(self.grounding, goal)
             else:
                 articles_block = ""
             rendered = render(

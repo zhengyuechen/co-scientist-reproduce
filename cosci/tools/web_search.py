@@ -8,9 +8,12 @@ Backends: arXiv (default, free), none, or Tavily (web search, needs WEB_SEARCH_A
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
+
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -37,14 +40,29 @@ def format_articles(articles: list[Article]) -> str:
     return "\n".join(blocks)
 
 
+async def safe_search(backend, query: str, max_results: int = 5) -> str:
+    """Search via ``backend`` and return a formatted article block. On ANY failure
+    (no backend, rate limit / HTTP 429, network error) return "" so the calling agent
+    degrades gracefully to parametric reasoning instead of failing the whole run."""
+    if backend is None:
+        return ""
+    try:
+        return format_articles(await backend.search(query, max_results=max_results))
+    except Exception as exc:
+        log.warning("grounding search failed (%s); falling back to parametric reasoning", exc)
+        return ""
+
+
 class ArxivBackend:
-    def __init__(self, client=None):
+    def __init__(self, client=None, page_size_cap: int = 10):
         self._client = client
+        self._page_size_cap = page_size_cap
 
     async def search(self, query: str, max_results: int = 5) -> list[Article]:
         import arxiv
         if self._client is None:
-            self._client = arxiv.Client()
+            page_size = max(1, min(max_results, self._page_size_cap))
+            self._client = arxiv.Client(page_size=page_size)
 
         search = arxiv.Search(query=query, max_results=max_results)
         results = await asyncio.to_thread(list, self._client.results(search))

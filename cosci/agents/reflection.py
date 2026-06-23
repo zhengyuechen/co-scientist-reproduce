@@ -6,7 +6,7 @@ from cosci.memory import ContextMemory
 from cosci.models import AgentName, Review, Safety, Task, TaskType
 from cosci.prompts.reconstructed import REFLECT_DEEP_VERIFICATION, REFLECT_FULL
 from cosci.prompts.render import render
-from cosci.tools.web_search import format_articles
+from cosci.tools.web_search import safe_search
 
 
 class ReflectionAgent:
@@ -17,12 +17,8 @@ class ReflectionAgent:
         hid = task.target_id
         hypothesis = memory.get(hid)
 
-        # --- Full review ---
-        if self.grounding is not None:
-            articles = await self.grounding.search(hypothesis.text[:300], max_results=5)
-            articles_block = format_articles(articles)
-        else:
-            articles_block = ""
+        # --- Full review --- (grounding failures degrade to parametric, never crash the run)
+        articles_block = await safe_search(self.grounding, hypothesis.text[:300])
         full_prompt = render(
             REFLECT_FULL,
             goal=memory.research_plan.goal,

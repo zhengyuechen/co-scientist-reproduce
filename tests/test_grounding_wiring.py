@@ -55,3 +55,31 @@ async def test_generation_no_backend_still_works():
         Task(agent=AgentName.GENERATION, action=TaskType.CREATE_INITIAL_HYPOTHESES),
         mem, FakeLLM(lambda a, m: "Hypothesis: x"), cfg)
     assert len(res.new_hypotheses) == 1     # parametric fallback unchanged
+
+
+class _BoomBackend:
+    async def search(self, query, max_results=5):
+        raise RuntimeError("Page request resulted in HTTP 429")
+
+
+@pytest.mark.asyncio
+async def test_generation_survives_grounding_failure():
+    cfg = load_config("config.yaml")
+    mem = ContextMemory(research_plan=ResearchPlan(goal="g", preferences=[]))
+    res = await GenerationAgent(strategies=["literature_review"], grounding=_BoomBackend()).execute(
+        Task(agent=AgentName.GENERATION, action=TaskType.CREATE_INITIAL_HYPOTHESES),
+        mem, FakeLLM(lambda a, m: "Hypothesis: x"), cfg)
+    assert len(res.new_hypotheses) == 1     # arXiv 429 -> parametric fallback, run does not crash
+
+
+@pytest.mark.asyncio
+async def test_reflection_survives_grounding_failure():
+    cfg = load_config("config.yaml")
+    mem = ContextMemory(research_plan=ResearchPlan(goal="g"))
+    mem.add_hypothesis(Hypothesis(id="G1", text="some hypothesis", title="T", source_strategy="s"))
+    res = await ReflectionAgent(grounding=_BoomBackend()).execute(
+        Task(agent=AgentName.REFLECTION, action=TaskType.REVIEW_HYPOTHESIS, target_id="G1"),
+        mem, FakeLLM(lambda a, m: "verification: verified" if "deep verification" in m[-1]["content"].lower() else "safety: safe"),
+        cfg)
+    assert len(res.reviews) == 2            # grounding 429 -> review still completes
+    assert res.reviews[0].tool_grounded is False
