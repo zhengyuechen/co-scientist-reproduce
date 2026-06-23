@@ -81,6 +81,26 @@ async def _run_one(sup: Supervisor, lock: asyncio.Lock, task: Task,
         return sup.manage_follow_ups(res, memory)
 
 
+async def _drain_review_chain(sup: Supervisor, lock: asyncio.Lock, follow_ups: list[Task],
+                              memory: ContextMemory, llm: LLMClient, cfg: Config,
+                              _depth: int = 0) -> None:
+    """Drain REVIEW_HYPOTHESIS and ADD_TO_TOURNAMENT follow-ups recursively.
+
+    Bounded to max depth 4 to prevent runaway chains. Mirrors what the continuous
+    queue does automatically.
+    """
+    if _depth >= 4:
+        return
+    tourn_tasks: list[Task] = []
+    for ft in follow_ups:
+        if ft.action == TaskType.REVIEW_HYPOTHESIS:
+            add_tasks = await _run_one(sup, lock, ft, memory, llm, cfg)
+            tourn_tasks += add_tasks
+    for at in tourn_tasks:
+        if at.action == TaskType.ADD_TO_TOURNAMENT:
+            await _run_one(sup, lock, at, memory, llm, cfg)
+
+
 async def _run_round_based(sup: Supervisor, lock: asyncio.Lock, initial: Task,
                            memory: ContextMemory, llm: LLMClient, cfg: Config) -> None:
     rnd = 0
@@ -108,11 +128,14 @@ async def _run_round_based(sup: Supervisor, lock: asyncio.Lock, initial: Task,
 
         # Every other round: evolve the top hypotheses and refresh proximity.
         if rnd % 2 == 1:
-            await _run_one(
+            evolve_followups = await _run_one(
                 sup, lock,
                 Task(agent=AgentName.EVOLUTION, action=TaskType.EVOLVE_TOP),
                 memory, llm, cfg,
             )
+            # Drain REVIEW_HYPOTHESIS and ADD_TO_TOURNAMENT follow-ups so evolved
+            # hypotheses are reviewed and safety-vetted (mirroring the continuous queue).
+            await _drain_review_chain(sup, lock, evolve_followups, memory, llm, cfg)
             await _run_one(
                 sup, lock,
                 Task(agent=AgentName.PROXIMITY, action=TaskType.UPDATE_PROXIMITY),
@@ -136,4 +159,5 @@ async def run_engine(goal_raw: str, memory: ContextMemory, llm: LLMClient, cfg: 
     else:
         await _run_continuous(sup, lock, initial, memory, llm, cfg, snapshot_path)
 
-    return await _final_overview(agents, memory, llm, cfg)
+    ov = await _final_overview(agents, memory, llm, cfg)
+    return ov if ov is not None else ""
