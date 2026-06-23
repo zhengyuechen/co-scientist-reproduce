@@ -7,6 +7,7 @@ from cosci.models import AgentName, Hypothesis, Origin, Task, TaskType
 from cosci.prompts.reconstructed import GEN_ITERATIVE_ASSUMPTIONS, GEN_RESEARCH_EXPANSION
 from cosci.prompts.render import assemble_instructions, render
 from cosci.prompts.verbatim import GEN_DEBATE, GEN_LITERATURE
+from cosci.tools.web_search import format_articles
 
 _STRATEGY_PROMPT = {
     "literature_review": GEN_LITERATURE,
@@ -19,8 +20,9 @@ _DEFAULT_STRATEGIES = ["literature_review", "scientific_debate"]
 
 
 class GenerationAgent:
-    def __init__(self, strategies: list[str] | None = None) -> None:
+    def __init__(self, strategies: list[str] | None = None, grounding=None) -> None:
         self.strategies = strategies if strategies is not None else _DEFAULT_STRATEGIES
+        self.grounding = grounding
 
     async def execute(self, task: Task, memory: ContextMemory, llm, cfg) -> Results:
         goal = memory.research_plan.goal
@@ -32,6 +34,11 @@ class GenerationAgent:
 
         for strategy in self.strategies:
             template = _STRATEGY_PROMPT[strategy]
+            if strategy == "literature_review" and self.grounding is not None:
+                articles = await self.grounding.search(goal, max_results=5)
+                articles_block = format_articles(articles)
+            else:
+                articles_block = ""
             rendered = render(
                 template,
                 goal=goal,
@@ -39,7 +46,7 @@ class GenerationAgent:
                 instructions=instructions,
                 idea_attributes="novel",
                 source_hypothesis="",
-                articles_with_reasoning="",
+                articles_with_reasoning=articles_block,
                 reviews_overview="",
                 transcript="",
                 research_overview="",
