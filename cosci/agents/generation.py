@@ -1,6 +1,8 @@
 """Generation agent: produces new hypotheses from research strategies."""
 from __future__ import annotations
 
+import re
+
 from cosci.agents.base import Results
 from cosci.agents.text_utils import clean_title, split_atomic_hypotheses
 from cosci.memory import ContextMemory
@@ -18,6 +20,27 @@ _STRATEGY_PROMPT = {
 }
 
 _DEFAULT_STRATEGIES = ["literature_review", "scientific_debate", "iterative_assumptions", "research_expansion"]
+
+# SN9 debate responses terminate with a bare "HYPOTHESIS" (all caps) before the
+# finalized idea. The negative lookahead excludes a numbered "HYPOTHESIS 2:" proposal
+# label, which is a deliberation candidate, not the termination marker.
+_DEBATE_TERMINATION_RE = re.compile(r"HYPOTHESIS\b(?!\s*#?\s*\d)")
+
+
+def _debate_chunks(raw: str) -> list[str]:
+    """Atomic hypotheses from a scientific-debate response.
+
+    Prefer the finalized idea after the last bare HYPOTHESIS marker, splitting it
+    only if that idea is itself a numbered bundle. With no marker (the model gave
+    its opening contribution of several numbered proposals instead of converging),
+    split the whole response so each proposal becomes its own hypothesis.
+    """
+    marks = list(_DEBATE_TERMINATION_RE.finditer(raw))
+    if marks:
+        converged = raw[marks[-1].end():].strip().lstrip(":-–— ").strip()
+        if converged:
+            return split_atomic_hypotheses(converged)
+    return split_atomic_hypotheses(raw)
 
 
 class GenerationAgent:
@@ -55,14 +78,14 @@ class GenerationAgent:
 
             # Split a response that bundles several numbered proposals into atomic
             # hypotheses so each is reviewed, ranked, and cited on its own. The debate
-            # strategy may instead converge on a single finalized idea after a bare
-            # "HYPOTHESIS" marker — honor that only when it is not a numbered bundle.
+            # strategy first resolves its "HYPOTHESIS" convergence marker (if any),
+            # so a deliberation that weighed several candidates collapses to the final
+            # idea rather than being split into the candidates.
             raw = response.strip()
-            chunks = split_atomic_hypotheses(raw)
-            if len(chunks) == 1 and strategy == "scientific_debate" and "HYPOTHESIS" in raw:
-                converged = raw.split("HYPOTHESIS")[-1].strip()
-                if converged:
-                    chunks = [converged]
+            if strategy == "scientific_debate":
+                chunks = _debate_chunks(raw)
+            else:
+                chunks = split_atomic_hypotheses(raw)
 
             for chunk in chunks:
                 h = Hypothesis(
