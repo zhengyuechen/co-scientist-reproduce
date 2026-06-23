@@ -38,6 +38,7 @@ async def test_reflection_parses_verdicts_into_scores_not_empty():
 
     h = mem.get("G1")
     assert h.novelty == 2.0 and h.verification == "invalidated"
+    assert h.closest_model and "Diosi-Penrose" in h.closest_model   # nearest prior art captured
     full = [r for r in mem.reviews["G1"] if r.type == "full"][0]
     deep = [r for r in mem.reviews["G1"] if r.type == "deep_verification"][0]
     assert full.scores == {"novelty": 2.0}          # the previously-empty scores object now carries the verdict
@@ -56,19 +57,19 @@ async def test_reflection_reasks_when_novelty_line_missing():
 
     def router(a, m):
         c = m[-1]["content"]
-        if "reply with ONLY one line" in c:          # the targeted re-ask
+        if "Reply with ONLY the integer" in c:       # the robust re-ask
             calls["n"] += 1
-            return "novelty: 3"
+            return "I'd say 4."                       # bare-ish integer, not 'novelty: N'
         if "deep verification" in c.lower():
             return "verification: uncertain"
-        return "Closest model: X. A real review but no verdict line.\nsafety: safe"
+        return "Closest model: standard QM. A real review but no verdict line.\nsafety: safe"
 
     res = await ReflectionAgent().execute(
         Task(agent=AgentName.REFLECTION, action=TaskType.REVIEW_HYPOTHESIS, target_id="G1"),
         mem, FakeLLM(router), cfg)
     assert calls["n"] == 1                            # re-asked exactly once
-    assert mem.get("G1").novelty == 3.0              # score recovered, no longer None
-    assert mem.get("G1").active is False             # 3 < 5 -> pruned
+    assert mem.get("G1").novelty == 4.0              # recovered from a bare-integer reply
+    assert mem.get("G1").active is False             # 4 < 5 -> pruned
     assert res.follow_ups == []
 
 

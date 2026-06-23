@@ -35,7 +35,9 @@ Instructions:
 4. Aggregate the surviving, mutually consistent assumptions into one detailed hypothesis, specifying the entities, mechanisms, and anticipated outcomes.
 5. Make explicit which intermediate assumptions the final hypothesis depends on, so each can be independently tested.
 
-Proposed hypothesis (detailed description for domain experts, with its supporting chain of assumptions):"""
+Begin your response by stating the proposed hypothesis itself in one clear sentence, prefixed with a short descriptive name (e.g. "Proposed Hypothesis: <Name> — <one-sentence statement>"). Do NOT begin with the words "Decomposition", "Intermediate Assumptions", or a section outline. Only after stating the hypothesis, present the supporting chain of assumptions.
+
+Proposed hypothesis (name and one-sentence statement first, then the detailed description and its supporting chain of assumptions):"""
 
 # RECONSTRUCTED — not from SM. Methods intent: Propose hypotheses in under-explored areas, informed by existing hypotheses + meta-review overview.
 # Recreates: Methods "research expansion" Generation strategy (Methods p.25). No prompt published in SN9.
@@ -93,17 +95,22 @@ Literature review and analytical rationale (chronologically ordered, beginning w
 
 Instructions:
 1. Correctness: evaluate whether the hypothesis is logically sound and consistent with the provided literature. Cite the specific articles that support or contradict it using their bracket labels, e.g. [A1].
-2. Novelty: evaluate whether the hypothesis is novel. First name the single closest existing model, framework, or result (from the provided literature or from established knowledge), then state explicitly whether the hypothesis is mathematically or conceptually equivalent to it under a relabeling of terms. If it is a restatement of, or a special case of, an existing model, novelty is low — do not credit new terminology as new content. If the text under review is not a genuine scientific hypothesis at all — task meta-commentary, a literature survey, an outline, a refusal, or anything lacking a specific proposed mechanism — it has no novelty: assign 1 and say it is not a testable hypothesis.
+2. Novelty: evaluate whether the hypothesis is genuinely novel, applying these tests in order:
+   (a) Closest model: name the single closest existing model, framework, or result (from the literature or established knowledge).
+   (b) Relabeling test: is the hypothesis mathematically or conceptually equivalent to that model under a relabeling of terms? If so, novelty is low — new terminology is not new content.
+   (c) Recombination test: if the hypothesis combines or synthesizes two or more existing models, combination alone is NOT novelty. Identify the predicted observable (the measurable quantity or scaling it predicts), name the existing model that predicts the same observable, and check whether the hypothesis's distinctive added premise actually changes any predicted number at the scale where the relevant experiment operates. If the added premise is operationally vestigial — it changes no measurable quantity at the relevant scale, so an existing model already predicts the same observable — the hypothesis reduces to that model and novelty is low, regardless of the synthesis framing or new vocabulary.
+   (d) Degenerate test: if the text is not a genuine hypothesis at all — task meta-commentary, a literature survey, an outline or decomposition of assumptions, a refusal, or anything with no specific proposed mechanism — assign novelty 1 and say it is not a testable hypothesis.
 3. Grounding: for each major claim, identify the supporting or refuting evidence among the provided articles, and note where evidence is missing.
 4. References: list every article you relied on using its bracket label, title, and URL. If no provided article supports a claim, explicitly say "no provided source".
 5. Safety: assess whether pursuing the hypothesis could be unethical or unsafe.
 
 Provide your novelty and correctness assessments with supporting references and a "References used" section.
 
-You MUST end your entire response with exactly these two lines, each on its own line, with nothing after them:
+You MUST end your entire response with exactly these three lines, each on its own line, with nothing after them:
+closest_model: <name the single closest existing model, or "none">
 novelty: <integer from 1 to 10>
 safety: <safe or unsafe>
-where novelty 1 = a restatement of an existing model or not a real hypothesis, and 10 = no comparable prior art exists. Both lines are required."""
+where novelty 1 = a restatement or recombination of existing models that adds no new observable, or not a real hypothesis, and 10 = no comparable prior art exists. All three lines are required."""
 
 # RECONSTRUCTED — not from SM. Methods intent: Decompose hypothesis into core + sub-assumptions, evaluate each independently for plausibility.
 # Recreates: Methods "deep verification review" (Methods pp.26-27); SN8 ReviewHypothesis "break down into core assumptions" one-liner; SN10.6/10.7 examples. No prompt published in SN9.

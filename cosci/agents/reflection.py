@@ -25,6 +25,18 @@ def _parse_novelty(text: str) -> float | None:
     return float(max(1, min(10, int(m.group())))) if m else None
 
 
+def _parse_first_int_1_10(text: str) -> float | None:
+    """Fallback for a bare-integer re-ask response ('4', 'I'd say 4.')."""
+    m = re.search(r"\b(10|[1-9])\b", text)
+    return float(m.group(1)) if m else None
+
+
+def _parse_closest_model(text: str) -> str | None:
+    m = re.search(r"(?im)^\s*closest[_ ]model\s*:\s*(.+?)\s*$", text)
+    val = m.group(1).strip().strip("<>").strip() if m else None
+    return val[:120] if val and val.lower() not in ("none", "n/a", "") else None
+
+
 class ReflectionAgent:
     def __init__(self, grounding=None) -> None:
         self.grounding = grounding
@@ -73,15 +85,16 @@ class ReflectionAgent:
         # so a restatement of an existing model can actually be gated downstream.
         novelty = _parse_novelty(full_response)
         if novelty is None:
-            # The model skipped the required verdict line; re-ask for just the score so a
-            # score lands on every review instead of failing open into the keep bucket.
+            # The model skipped the required verdict line; re-ask for ONLY a single integer so a
+            # score lands on every review (closes the unscored-escape blind spot in the gate).
             ask = await llm.complete("reflection", [{"role": "user", "content": (
-                "Based on the review below, reply with ONLY one line in exactly this format:\n"
-                "novelty: <integer 1-10>\n"
-                "where 1 = a restatement of an existing model or not a real hypothesis, "
-                "10 = no comparable prior art.\n\nReview:\n" + full_response)}])
-            novelty = _parse_novelty(ask)
+                "Score the novelty of the hypothesis reviewed below from 1 to 10, where 1 = a "
+                "restatement or recombination of existing models that adds no new observable, or "
+                "not a real hypothesis, and 10 = no comparable prior art. Reply with ONLY the integer.\n\n"
+                "Hypothesis:\n" + hypothesis.text[:1500] + "\n\nReview:\n" + full_response[:2000])}])
+            novelty = _parse_novelty(ask) or _parse_first_int_1_10(ask)
         hypothesis.novelty = novelty
+        hypothesis.closest_model = _parse_closest_model(full_response)
 
         run_log.emit("reflection_done", tick=memory.tick, hypothesis_id=hid,
                      grounded=bool(articles_block), safety=review_safety, novelty=novelty)

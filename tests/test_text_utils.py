@@ -15,14 +15,16 @@ G5_REAL = ("### 1. Intermediate Assumptions and Conditional Reasoning\n\nTo dete
            "**Assumption 1:** The incompatibility of superposition and measurement.")
 
 
-def test_is_scaffolding_rejects_task_meta():
-    assert is_scaffolding(G6_SCAFFOLD) is True
+def test_is_scaffolding_rejects_task_meta_and_outline_leaks():
+    assert is_scaffolding(G6_SCAFFOLD) is True                 # task meta-commentary / survey
+    assert is_scaffolding(G5_REAL) is True                     # outline header used in place of a hypothesis
+    assert is_scaffolding("1. Analysis of Existing Research Directions\n...") is True
 
 
 def test_is_scaffolding_keeps_real_hypotheses_with_preamble():
     assert is_scaffolding(G1_REAL) is False     # real hypothesis, just opens with a preamble
-    assert is_scaffolding(G5_REAL) is False      # real assumption-chain hypothesis
     assert is_scaffolding("Wavefunction collapse is a thermodynamic phase transition.") is False
+    assert is_scaffolding("1. The collapse occurs when entropy exceeds a threshold.") is False  # numbered, but a claim
 
 
 def test_clean_title_skips_based_on_preamble_to_real_title():

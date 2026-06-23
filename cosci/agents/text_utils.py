@@ -44,12 +44,27 @@ _SCAFFOLDING_RE = re.compile(
 )
 
 
+# An outline/section-header opening (the iterative-assumptions strategy leaking its structure,
+# e.g. "### 1. Decomposition into Intermediate Assumptions", "1. Analysis of Existing Research
+# Directions") — a reasoning scaffold presented in place of a stated hypothesis.
+_OUTLINE_HEAD_RE = re.compile(
+    r"^(?:#{1,6}\s*)?\d+\.\s*(?:decomposition into|intermediate assumption|"
+    r"analysis of (?:existing|the) research|research (?:directions|landscape)|"
+    r"existing research direction)",
+    re.IGNORECASE,
+)
+
+
 def is_scaffolding(text: str) -> bool:
-    """True if the text is meta-commentary about the task, a literature survey, or a refusal
-    rather than an actual scientific hypothesis. Narrow by design: it keys on phrases a real
-    hypothesis never uses ('provided in the prompt', 'reconstructed the landscape'), so a
-    genuine hypothesis that merely opens with a preamble is not rejected."""
-    return bool(_SCAFFOLDING_RE.search(text[:700]))
+    """True if the text is meta-commentary about the task, a literature survey, an outline, or a
+    refusal rather than an actual scientific hypothesis. Narrow by design: it keys on phrases a real
+    hypothesis never uses ('provided in the prompt', 'reconstructed the landscape') and on outline
+    headers used in place of a stated hypothesis, so a genuine hypothesis that merely opens with a
+    preamble is not rejected."""
+    if _SCAFFOLDING_RE.search(text[:700]):
+        return True
+    first = next((l.strip() for l in text.splitlines() if l.strip()), "")
+    return bool(_OUTLINE_HEAD_RE.match(_strip_md(first)) or _OUTLINE_HEAD_RE.match(first))
 
 # Label prefixes attached to a title, e.g. "Proposed Hypothesis:", "Hypothesis 2 -".
 _LABEL_RE = re.compile(
@@ -91,7 +106,7 @@ def clean_title(text: str, max_len: int = 80) -> str:
     """First line that reads like a title: markdown/label stripped, preambles skipped."""
     for raw in text.splitlines():
         line = _strip_md(raw)
-        if not line:
+        if not line or _OUTLINE_HEAD_RE.match(line):
             continue
         line = _LABEL_RE.sub("", line).strip()
         if not line or _PREAMBLE_RE.match(line):
