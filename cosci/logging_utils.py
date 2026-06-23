@@ -19,6 +19,30 @@ def make_run_dir(base: str, goal: str, timestamp: str) -> str:
     return path
 
 
+def grounding_stats(memory) -> dict:
+    """How much of this run was grounded in retrieved literature.
+
+    A review is grounded when the reflection agent had article sources to cite
+    (``tool_grounded``); a 0/N here means arXiv returned nothing or rate-limited
+    and the run fell back to parametric reasoning — the run is not literature-backed.
+    """
+    reviews = [r for rs in memory.reviews.values() for r in rs]
+    hyp_grounded = sum(
+        1 for rs in memory.reviews.values() if any(getattr(r, "tool_grounded", False) for r in rs)
+    )
+    return {
+        "reviews_total": len(reviews),
+        "reviews_grounded": sum(1 for r in reviews if getattr(r, "tool_grounded", False)),
+        "hypotheses_total": len(memory.hypotheses),
+        "hypotheses_grounded": hyp_grounded,
+    }
+
+
+def grounding_line(memory) -> str:
+    s = grounding_stats(memory)
+    return f"grounding: {s['reviews_grounded']}/{s['reviews_total']} reviews grounded"
+
+
 def elo_trajectory(memory) -> list[dict]:
     if not memory.tournament:
         return []
@@ -66,7 +90,11 @@ def write_results(memory, overview: str, out_dir: str) -> None:
     # research_overview.json
     with open(os.path.join(out_dir, "research_overview.json"), "w") as f:
         json.dump(
-            {"goal": memory.research_plan.goal if memory.research_plan else None, "overview": overview},
+            {
+                "goal": memory.research_plan.goal if memory.research_plan else None,
+                "overview": overview,
+                "grounding": grounding_stats(memory),
+            },
             f, indent=2, default=str,
         )
 

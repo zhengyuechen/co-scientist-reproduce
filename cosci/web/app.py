@@ -91,6 +91,7 @@ def _read_run(results_base: str, run_id: str) -> dict:
         "id": run_id,
         "goal": overview.get("goal"),
         "overview": overview.get("overview"),
+        "grounding": overview.get("grounding"),
         "hypotheses": load_json("hypotheses.json", []),
         "reviews": load_json("reviews.json", {}),
         "tournament": tournament,

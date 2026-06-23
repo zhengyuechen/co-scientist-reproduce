@@ -12,7 +12,7 @@ from cosci.agents import (
 )
 from cosci.config import Config, load_config
 from cosci.engine import run_engine
-from cosci.logging_utils import make_run_dir, write_results, summary_line
+from cosci.logging_utils import make_run_dir, write_results, summary_line, grounding_line
 from cosci.memory import ContextMemory
 from cosci.models import AgentName
 from cosci.tools.web_search import build_backend, is_faithful_grounding
@@ -101,6 +101,7 @@ def main(argv=None) -> int:
         return 2
     print(f"Results written to {out}")
     print(summary_line(mem))
+    print(grounding_line(mem))
     return 0
 
 

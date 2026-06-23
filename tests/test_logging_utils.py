@@ -1,5 +1,6 @@
 import json, os
-from cosci.logging_utils import slugify, make_run_dir, elo_trajectory, write_results, summary_line
+from cosci.logging_utils import (slugify, make_run_dir, elo_trajectory, write_results,
+                                 summary_line, grounding_stats, grounding_line)
 from cosci.memory import ContextMemory
 from cosci.models import Hypothesis, Review, MatchResult, ResearchPlan, DebateMode
 
@@ -37,3 +38,25 @@ def test_write_results(tmp_path):
 
 def test_summary_line():
     assert "hypotheses" in summary_line(_mem())
+
+
+def test_grounding_stats_counts_grounded_reviews():
+    m = ContextMemory(research_plan=ResearchPlan(goal="g"))
+    m.add_hypothesis(Hypothesis(id="G1", text="t", title="T", source_strategy="s"))
+    m.add_hypothesis(Hypothesis(id="G2", text="t", title="T", source_strategy="s"))
+    m.add_review(Review(hypothesis_id="G1", type="full", text="ok", tool_grounded=True))
+    m.add_review(Review(hypothesis_id="G1", type="deep_verification", text="ok", tool_grounded=False))
+    m.add_review(Review(hypothesis_id="G2", type="full", text="ok", tool_grounded=False))
+    s = grounding_stats(m)
+    assert s == {"reviews_total": 3, "reviews_grounded": 1,
+                 "hypotheses_total": 2, "hypotheses_grounded": 1}
+    assert grounding_line(m) == "grounding: 1/3 reviews grounded"
+
+
+def test_write_results_records_grounding(tmp_path):
+    out = str(tmp_path)
+    write_results(_mem(), "Overview text.", out)
+    ov = json.load(open(os.path.join(out, "research_overview.json")))
+    # _mem has one ungrounded full review -> 0/1 grounded, visible in the saved record
+    assert ov["grounding"] == {"reviews_total": 1, "reviews_grounded": 0,
+                               "hypotheses_total": 2, "hypotheses_grounded": 0}

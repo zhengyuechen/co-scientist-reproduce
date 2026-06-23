@@ -71,6 +71,9 @@ def test_runs_list_and_detail(env):
     assert len(runs) == 1 and runs[0]["goal"] == "cure X" and round(runs[0]["best_elo"]) == 1250
     detail = c.get(f"/api/runs/{runs[0]['id']}").json()
     assert detail["overview"] == "Overview body." and detail["hypotheses"][0]["id"] == "G1"
+    # grounding status surfaces to the UI (this run has no reviews -> 0/0)
+    assert detail["grounding"] == {"reviews_total": 0, "reviews_grounded": 0,
+                                   "hypotheses_total": 1, "hypotheses_grounded": 0}
 
 
 def test_launch_endpoint_returns_run_id(env):

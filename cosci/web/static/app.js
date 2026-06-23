@@ -68,6 +68,7 @@ async function selectRun(id) {
   try { run = await api.get(`/api/runs/${id}`); } catch (e) { return; }
   $("#result-id").textContent = id;
   $("#result-goal").textContent = run.goal || "(untitled run)";
+  renderGroundingStatus(run.grounding);
   $("#overview").textContent = (run.overview && run.overview.trim()) ? run.overview : "No overview was produced for this run.";
   renderHypotheses(run.hypotheses || []);
   renderTournament(run.tournament || []);
@@ -78,6 +79,22 @@ async function selectRun(id) {
 function safetyTag(s) {
   const v = (s || "unreviewed").toLowerCase();
   return el("span", `tag ${v}`, v);
+}
+
+/* Plain statement of how literature-backed the run is. 0/N => arXiv returned
+   nothing or rate-limited; the run ran on parametric reasoning, not sources. */
+function renderGroundingStatus(g) {
+  const node = $("#result-grounding");
+  if (!g || g.reviews_total == null) { node.hidden = true; return; }
+  node.hidden = false;
+  const grounded = g.reviews_grounded || 0, total = g.reviews_total || 0;
+  const ok = grounded > 0;
+  node.className = "result-grounding " + (ok ? "is-grounded" : "is-ungrounded");
+  node.replaceChildren(
+    el("span", "dot " + (ok ? "faithful" : "local")),
+    txt(`grounding: ${grounded}/${total} reviews grounded`),
+    txt(ok ? "" : " · ran on parametric reasoning (no literature sources retrieved)"),
+  );
 }
 
 function renderHypotheses(hyps) {
