@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 
 from cosci.agents.base import Results
+from cosci.agents.text_utils import clean_title
 from cosci.elo import INITIAL_ELO
 from cosci.memory import ContextMemory
 from cosci.models import AgentName, Hypothesis, Origin, Task, TaskType
@@ -35,13 +36,10 @@ class EvolutionAgent:
 
         resp = await llm.complete("evolution", [{"role": "user", "content": prompt}])
 
-        # Title: first non-empty line, truncated to ~80 chars
-        title = next((line.strip() for line in resp.splitlines() if line.strip()), resp[:80])[:80]
-
         evolved = Hypothesis(
             id=memory.new_id("E"),
             text=resp,
-            title=title,
+            title=clean_title(resp),
             source_strategy="combine",
             origin=Origin.EVOLVED,
             parent_ids=[top[0].id, top[1].id],

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from cosci.agents.base import Results
+from cosci.agents.text_utils import clean_title, split_atomic_hypotheses
 from cosci.memory import ContextMemory
 from cosci.models import AgentName, Hypothesis, Origin, Task, TaskType
 from cosci.prompts.reconstructed import GEN_ITERATIVE_ASSUMPTIONS, GEN_RESEARCH_EXPANSION
@@ -52,26 +53,30 @@ class GenerationAgent:
             )
             response = await llm.complete("generation", [{"role": "user", "content": rendered}])
 
-            text = response
-            if strategy == "scientific_debate" and "HYPOTHESIS" in response:
-                text = response.split("HYPOTHESIS")[-1]
+            # Split a response that bundles several numbered proposals into atomic
+            # hypotheses so each is reviewed, ranked, and cited on its own. The debate
+            # strategy may instead converge on a single finalized idea after a bare
+            # "HYPOTHESIS" marker — honor that only when it is not a numbered bundle.
+            raw = response.strip()
+            chunks = split_atomic_hypotheses(raw)
+            if len(chunks) == 1 and strategy == "scientific_debate" and "HYPOTHESIS" in raw:
+                converged = raw.split("HYPOTHESIS")[-1].strip()
+                if converged:
+                    chunks = [converged]
 
-            text = text.strip()
-            first_line = next((ln for ln in text.splitlines() if ln.strip()), text)
-            title = first_line.strip()[:80]
-
-            h = Hypothesis(
-                id=memory.new_id("G"),
-                title=title,
-                text=text,
-                source_strategy=strategy,
-                origin=Origin.GENERATED,
-                created_tick=memory.tick,
-            )
-            memory.add_hypothesis(h)
-            new_hypotheses.append(h)
-            follow_ups.append(
-                Task(agent=AgentName.REFLECTION, action=TaskType.REVIEW_HYPOTHESIS, target_id=h.id)
-            )
+            for chunk in chunks:
+                h = Hypothesis(
+                    id=memory.new_id("G"),
+                    title=clean_title(chunk),
+                    text=chunk,
+                    source_strategy=strategy,
+                    origin=Origin.GENERATED,
+                    created_tick=memory.tick,
+                )
+                memory.add_hypothesis(h)
+                new_hypotheses.append(h)
+                follow_ups.append(
+                    Task(agent=AgentName.REFLECTION, action=TaskType.REVIEW_HYPOTHESIS, target_id=h.id)
+                )
 
         return Results(new_hypotheses=new_hypotheses, follow_ups=follow_ups)
