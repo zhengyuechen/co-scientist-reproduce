@@ -1,95 +1,84 @@
-# Tier 0: capture and use the criticism the model already writes
+# Making the criticism count: parse, prune, and name the prior art
 
 **Date:** 2026-06-23
-**Branch:** `tier0-parse-and-gate`
-**Run this explains:** `results/2026-06-22_223642_is-wavefunction-collapse-physical/` (the "Is wavefunction collapse physical?" overview)
+**Branch:** `tier0-parse-and-gate` (kept unmerged)
+**Runs:** `results/2026-06-22_223642_…` (the original laundered overview), `…_falsify_…` (Tier 0 only),
+`…_falsify2_…` (the full pipeline / acceptance run)
 
-## The problem in one sentence
+## The problem (plain version)
 
-The system was already writing the right criticism — it named Penrose, Diósi, GRW, and CSL
-dozens of times and even called hypotheses "a synthesis of existing concepts" — but that
-criticism was trapped in unread review text. Nothing read it, so nothing acted on it, and a
-polished "three promising directions" report came out the other end anyway.
+The system was already writing the right criticism — it named Penrose, Diósi, GRW, CSL dozens of
+times and called hypotheses "a synthesis of existing concepts" — but every skeptical judgment was
+trapped in unread review text. The only two model judgments that did anything were the safety flag
+and the tournament winner. So the cleanest restatement of an existing model could win the
+tournament and be written up as a promising new direction. And the candidate pool was poisoned:
+three of six "hypotheses" were scaffolding (the model talking about the task), and the novelty
+scorer rated the worst of them the most novel.
 
-## Why that happened (the gates)
+## The four fixes (in the order that mattered)
 
-Only two model judgments had any mechanical effect in the whole system:
+1. **Generation hygiene — stop handing the gate garbage.** Generation now rejects chunks that are
+   task meta-commentary / surveys / refusals (`is_scaffolding`) and regenerates a strategy once if
+   it produced nothing usable. The title cleaner gained coverage for more preambles ("Based on…",
+   "To determine…", "Since…") so a real hypothesis behind a preamble keeps its real title.
 
-1. **the safety flag** — unsafe hypotheses get filtered out, and
-2. **the tournament winner** — which drives the Elo ranking.
+2. **Reliable verdicts — make every review emit a score.** `REFLECT_FULL` now ends in a strict
+   required `novelty: <1-10>` line and floors non-hypotheses (surveys, outlines) to novelty 1. If
+   the model still skips the line, reflection re-asks for just that one line. The parsed novelty and
+   the deep-verification verdict now land in `review.scores` (previously empty on every review).
 
-Everything else the model "decided" was free text. In particular:
+3. **A gate that actually prunes.** Before, the gate only hid low-novelty hypotheses from the final
+   overview; they stayed active and kept competing. Now a hypothesis its own reviews condemn (novelty
+   below threshold, default 5, or verification `invalidated`) is deactivated at reflection — before
+   the tournament — so it stops surviving everywhere. It still fails *open* on a missing score.
 
-- Each review has a `scores` field meant to hold numeric judgments. **It was empty (`{}`) in
-  all twelve reviews of that run.** The novelty assessment the model wrote in prose was never
-  turned into a number.
-- The deep-verification verdict (`verification: verified / uncertain / invalidated`) was never
-  read.
-- The final overview was built from hypothesis text + tournament rank, and **threw away the
-  review bodies** — including every "this resembles Diósi–Penrose" sentence.
+4. **Tier 1 — condition the overview on the criticism.** Each surviving hypothesis carries its review
+   into the synthesis, and the overview is instructed to name the single closest existing model per
+   direction and flag restatements rather than launder them — reporting how many were pruned.
 
-So the cleanest restatement of an existing model (G1) actually *won* the tournament, and the
-overview presented it as a promising new direction.
+## Acceptance test (same prompt, "Is wavefunction collapse physical?", grounding off)
 
-## What this change does
+The test was: does a self-identified restatement get **pruned** (not just hidden), and does the
+overview **name the prior art**? Both now pass.
 
-It captures the verdicts the model already produces and lets them affect the outcome. No new
-model, no search backend, no smarter prompt reasoning required.
+| Signal | Before (Tier 0 only) | After (full pipeline) |
+|---|---|---|
+| Novelty scores parsed | 3 / 6 | 4 / 6 |
+| Hypotheses pruned (active=False) | 0 (overview-hidden only) | **2** (G2 nov 2, G6 nov 4 — out of tournament + overview) |
+| Overview names Penrose | 0× | **4×** (+ Bekenstein 2×) |
+| Overview verdict | "promising directions" | **"this conceptual space is largely well-trodden"** |
+| Directions flagged as restatements | none | **Directions 2 & 3 explicitly** |
 
-1. **Parse the verdicts** (`reflection.py`). After each review we now read:
-   - a `novelty: <1–10>` score from the full review (1 = a restatement of an existing model,
-     10 = no comparable prior art), and
-   - the `verification: <verified|uncertain|invalidated>` verdict from the deep review.
-   These go into `review.scores` (no longer empty) and onto the hypothesis itself.
+The overview now contains a "Closest Existing Model" line per direction and concludes that the
+attempts "rehash either thermodynamic decoherence or pre-geometric quantum gravity concepts." That
+is the correct, deflationary answer for a well-trodden question — a *less* impressive artifact than
+the original, which is the point.
 
-2. **Force the comparison** (`REFLECT_FULL` prompt). The full review must now name the single
-   closest existing model and say whether the hypothesis is the same thing under a relabeling of
-   terms — and if so, score novelty low. New terminology no longer counts as new content.
+## What's still imperfect (the model ceiling, now isolated)
 
-3. **Gate the overview** (`meta_review.py`). Before the final report is written, hypotheses whose
-   own reviews condemned them — novelty below a threshold (default 5/10) or verification
-   `invalidated` — are excluded. If nothing clears the bar, the overview is told to say plainly
-   that the area is well-trodden and no novel direction emerged, instead of inventing one.
+The remaining lenience is the reflection model, not the pipeline. `reflection` runs on
+`z-ai/glm-4.7-flash`, and:
 
-   The gate **fails open**: a hypothesis with no parsed score is kept, so this never
-   retroactively punishes missing data (e.g. older runs).
+- it rated the holographic/Bekenstein restatement (G1) **novelty 7**, so Direction 1 survived and the
+  model defended it as "a novel synthesis" — even while now naming Penrose OR and the Bekenstein
+  bound for it. The plumbing prunes whatever is scored low; the flash model just scores some
+  restatements too high.
+- 2 of 6 reviews still emitted no parseable novelty even after the re-ask (flash unreliability), and
+  it fumbles the tournament's `better idea:` format too (the `parse_label returned None` warnings).
 
-## What it does and doesn't fix
+The pipeline is now correct and the laundering is fixed; the last increment of output quality is a
+**reflection-model** question. The clean next experiment is to put `reflection` on `glm-5.2` and
+re-run: prediction is that the holographic restatement also craters and the overview deflates
+further. If even the strong model rates it novel with the comparison forced, that is a genuine
+finding about how hard equivalence-under-relabeling is — not a pipeline bug.
 
-- **Does:** strips confident restatements out of the final report. On this prompt, a correctly
-  working system should now produce a *less* impressive, more skeptical overview — which is the
-  right answer, because the six hypotheses really are existing collapse models relabeled.
-- **Doesn't merge duplicates:** novelty-gating craters the two "information-saturation" twins
-  (G1 and G2) *equally*, but it won't combine them into one. Merging duplicates needs the
-  Proximity agent to actually be read by something — it currently writes a similarity graph that
-  nobody consumes. That's a separate, later fix.
-- **Grounding untouched:** the one grounded review in 223642 retrieved dark-energy *telescope*
-  papers for "Topological Snap" and wrongly boosted novelty. Grounding is a later tier and, on a
-  well-known topic like this, lower priority than it looks — the model recalls the prior art
-  without it.
+## Files
 
-## The test to run next (your prediction, now runnable)
-
-Re-run "Is wavefunction collapse physical?" on the real model. Prediction: the restatement
-hypotheses (the information-saturation and metric-solidification ones) get low novelty scores,
-get dropped, and the confident three-direction conclusion does not survive. If novelty *doesn't*
-crater even after it's parsed and gated, the problem is in the model's equivalence reasoning, not
-the pipeline — and that is the outcome worth knowing.
-
-## Verification done so far
-
-- 5 new tests (`tests/test_aggregation_gating.py`): novelty parsing/clamping, the gate predicate,
-  the overview excluding a low-novelty hypothesis *even when it won the tournament*, and the
-  all-restatements case. Full suite: 102 passing.
-- End-to-end (offline): through the engine, review `scores` now read
-  `[{'novelty': 2.0}, {'verification': 0.5}]` instead of `{}`, and reviewed restatements are
-  excluded from the overview.
-
-## Files changed
-
-- `cosci/agents/reflection.py` — parse novelty + verification, populate `scores` and the hypothesis.
-- `cosci/agents/meta_review.py` — `passes_novelty_gate` + filter the overview, with an honest note.
-- `cosci/prompts/reconstructed.py` — `REFLECT_FULL` forces the closest-model comparison + a parseable `novelty:` line.
-- `cosci/models.py` — `Hypothesis.novelty`, `Hypothesis.verification`.
-- `cosci/config.py` — `overview.min_novelty` (default 5.0).
-- `tests/test_aggregation_gating.py` — new.
+- `cosci/agents/text_utils.py` — `is_scaffolding`; wider preamble coverage in `clean_title`.
+- `cosci/agents/generation.py` — reject scaffolding chunks, regenerate once.
+- `cosci/agents/reflection.py` — re-ask for a missing novelty line; prune (deactivate) on gate fail.
+- `cosci/agents/base.py` — `passes_novelty_gate` (shared).
+- `cosci/agents/meta_review.py` — carry reviews into the overview; report pruned count.
+- `cosci/prompts/reconstructed.py` — strict `REFLECT_FULL` verdict + degenerate floor; Tier 1 overview prompt.
+- `cosci/models.py` — `Hypothesis.novelty`, `.verification`, `.pruned_reason`; `OverviewCfg.min_novelty`.
+- Tests: `test_text_utils.py`, `test_agent_generation.py`, `test_aggregation_gating.py` (110 passing).
