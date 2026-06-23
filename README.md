@@ -52,7 +52,17 @@ and runs locally.
 
 ## Running
 
-Drive the engine in code (needs `OPENROUTER_API_KEY`):
+### Run from the command line
+
+Set `OPENROUTER_API_KEY`, then:
+
+```
+python -m cosci.cli "Your research goal"
+```
+
+Results land in `results/<timestamp>_<slug>/` (six files: hypotheses, reviews, tournament, Elo trajectory, and the research overview in Markdown and JSON). Pass `--help` for all options.
+
+### Drive the engine in code (needs `OPENROUTER_API_KEY`):
 
 ```python
 import asyncio

@@ -1,0 +1,112 @@
+"""Command-line entrypoint for the Co-Scientist system."""
+from __future__ import annotations
+
+import argparse
+import asyncio
+import sys
+from datetime import datetime
+
+from cosci.agents import (
+    GenerationAgent, ReflectionAgent, RankingAgent,
+    EvolutionAgent, ProximityAgent, MetaReviewAgent,
+)
+from cosci.config import Config, load_config
+from cosci.engine import run_engine
+from cosci.logging_utils import make_run_dir, write_results, summary_line
+from cosci.memory import ContextMemory
+from cosci.models import AgentName
+from cosci.tools.web_search import build_backend, is_faithful_grounding
+
+
+def build_agents(cfg: Config, grounding) -> dict:
+    return {
+        AgentName.GENERATION: GenerationAgent(grounding=grounding),
+        AgentName.REFLECTION: ReflectionAgent(grounding=grounding),
+        AgentName.RANKING: RankingAgent(),
+        AgentName.EVOLUTION: EvolutionAgent(),
+        AgentName.PROXIMITY: ProximityAgent(),
+        AgentName.META_REVIEW: MetaReviewAgent(),
+    }
+
+
+async def run_cli(
+    goal: str,
+    cfg: Config,
+    llm,
+    *,
+    grounding=None,
+    mode: str = "continuous",
+    results_base: str = "results",
+    timestamp: str,
+) -> str:
+    mem = ContextMemory()
+    agents = build_agents(cfg, grounding)
+    overview = await run_engine(goal, mem, llm, cfg, agents, mode=mode)
+    out = make_run_dir(results_base, goal, timestamp)
+    write_results(mem, overview or "", out)
+    return out
+
+
+def parse_args(argv=None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        prog="cosci.cli",
+        description="Run the Co-Scientist multi-agent system on a research goal.",
+    )
+    parser.add_argument("goal", help="Research goal to investigate.")
+    parser.add_argument(
+        "--mode",
+        choices=["continuous", "round_based"],
+        default="continuous",
+        help="Engine mode (default: continuous).",
+    )
+    parser.add_argument(
+        "--config",
+        default="config.yaml",
+        help="Path to config YAML (default: config.yaml).",
+    )
+    parser.add_argument(
+        "--results-dir",
+        default="results",
+        dest="results_dir",
+        help="Base directory for run output (default: results).",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv=None) -> int:
+    args = parse_args(argv)
+    cfg = load_config(args.config)
+
+    if not is_faithful_grounding(cfg):
+        print(
+            "Warning: grounding backend is arXiv-only (not the broad web search used in the paper). "
+            "Fidelity is reduced. Set backend=tavily in config.yaml and WEB_SEARCH_API_KEY for "
+            "faithful grounding.",
+            file=sys.stderr,
+        )
+
+    from cosci.llm import OpenRouterClient
+    llm = OpenRouterClient(cfg)
+    grounding = build_backend(cfg)
+    ts = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+
+    mem_ref: list[ContextMemory] = []
+
+    async def _run():
+        mem = ContextMemory()
+        mem_ref.append(mem)
+        agents = build_agents(cfg, grounding)
+        overview = await run_engine(args.goal, mem, llm, cfg, agents, mode=args.mode)
+        out = make_run_dir(args.results_dir, args.goal, ts)
+        write_results(mem, overview or "", out)
+        return out
+
+    out = asyncio.run(_run())
+    mem = mem_ref[0]
+    print(out)
+    print(summary_line(mem))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
 
@@ -41,11 +41,10 @@ class ArxivBackend:
         self._client = client
 
     async def search(self, query: str, max_results: int = 5) -> list[Article]:
+        import arxiv
         if self._client is None:
-            import arxiv
             self._client = arxiv.Client()
 
-        import arxiv  # noqa: F811 — needed for arxiv.Search
         search = arxiv.Search(query=query, max_results=max_results)
         results = await asyncio.to_thread(list, self._client.results(search))
         return [
