@@ -17,6 +17,7 @@ overview and returning its text.
 """
 from __future__ import annotations
 import asyncio
+import logging
 
 from cosci.supervisor import Supervisor
 from cosci.tasks import GlobalTaskQueue
@@ -25,6 +26,8 @@ from cosci.memory import ContextMemory
 from cosci.llm import LLMClient
 from cosci.config import Config
 from cosci.agents.base import Agent
+
+log = logging.getLogger(__name__)
 
 
 async def _final_overview(agents: dict[AgentName, Agent], memory: ContextMemory,
@@ -40,7 +43,13 @@ async def _run_continuous(sup: Supervisor, lock: asyncio.Lock, initial: Task,
     queue = GlobalTaskQueue()
     await queue.put(initial)
     idle = 0
+    max_iters = 1000 + 50 * cfg.budget.max_ideas * (cfg.budget.max_matches_per_idea + 1)
+    iters = 0
     while not sup.is_terminal(memory, cfg):
+        iters += 1
+        if iters > max_iters:
+            log.warning("engine: hit hard iteration cap (%d); terminating", max_iters)
+            break
         if queue.empty():
             nxt = sup.decide_next_steps(memory, cfg)
             if not nxt:
