@@ -25,6 +25,7 @@ class EvoCfg(BaseModel):
 
 class OverviewCfg(BaseModel):
     top_n: int = 10
+    min_novelty: float = 5.0   # hypotheses scoring below this are excluded from the overview as restatements
 
 class ProxCfg(BaseModel):
     method: str = "embeddings"

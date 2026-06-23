@@ -1,6 +1,8 @@
 """Reflection agent: runs full and deep-verification reviews on a hypothesis."""
 from __future__ import annotations
 
+import re
+
 from cosci import run_log
 from cosci.agents.base import Results, parse_label
 from cosci.memory import ContextMemory
@@ -8,6 +10,19 @@ from cosci.models import AgentName, Review, Safety, Task, TaskType
 from cosci.prompts.reconstructed import REFLECT_DEEP_VERIFICATION, REFLECT_FULL
 from cosci.prompts.render import render
 from cosci.tools.web_search import backend_label, safe_search
+
+# Deep-verification verdict -> numeric score, so the judgment lands in review.scores
+# instead of being stranded in prose.
+_VERIFICATION_SCORE = {"verified": 1.0, "uncertain": 0.5, "invalidated": 0.0}
+
+
+def _parse_novelty(text: str) -> float | None:
+    """Extract the machine-readable 'novelty: <1-10>' verdict, clamped, or None."""
+    raw = parse_label(text, "novelty")
+    if not raw:
+        return None
+    m = re.search(r"\d+", raw)
+    return float(max(1, min(10, int(m.group())))) if m else None
 
 
 class ReflectionAgent:
@@ -54,13 +69,19 @@ class ReflectionAgent:
             review_safety = Safety.SAFE
             hypothesis.safety = Safety.SAFE
 
+        # Capture the novelty verdict the model writes in prose into a parsed score,
+        # so a restatement of an existing model can actually be gated downstream.
+        novelty = _parse_novelty(full_response)
+        hypothesis.novelty = novelty
+
         run_log.emit("reflection_done", tick=memory.tick, hypothesis_id=hid,
-                     grounded=bool(articles_block), safety=review_safety)
+                     grounded=bool(articles_block), safety=review_safety, novelty=novelty)
 
         full_review = Review(
             hypothesis_id=hid,
             type="full",
             text=full_response,
+            scores={"novelty": novelty} if novelty is not None else {},
             tool_grounded=bool(articles_block),
             safety=review_safety,
         )
@@ -72,10 +93,14 @@ class ReflectionAgent:
         )
         deep_response = await llm.complete("reflection", [{"role": "user", "content": deep_prompt}])
 
+        # Capture the deep-verification verdict (verified/uncertain/invalidated) too.
+        verdict = parse_label(deep_response, "verification")
+        hypothesis.verification = verdict
         deep_review = Review(
             hypothesis_id=hid,
             type="deep_verification",
             text=deep_response,
+            scores={"verification": _VERIFICATION_SCORE[verdict]} if verdict in _VERIFICATION_SCORE else {},
             tool_grounded=False,
         )
 

@@ -93,12 +93,14 @@ Literature review and analytical rationale (chronologically ordered, beginning w
 
 Instructions:
 1. Correctness: evaluate whether the hypothesis is logically sound and consistent with the provided literature. Cite the specific articles that support or contradict it using their bracket labels, e.g. [A1].
-2. Novelty: evaluate whether the hypothesis is novel relative to the provided literature, distinguishing genuinely new claims from those already established.
+2. Novelty: evaluate whether the hypothesis is novel. First name the single closest existing model, framework, or result (from the provided literature or from established knowledge), then state explicitly whether the hypothesis is mathematically or conceptually equivalent to it under a relabeling of terms. If it is a restatement of, or a special case of, an existing model, novelty is low — do not credit new terminology as new content.
 3. Grounding: for each major claim, identify the supporting or refuting evidence among the provided articles, and note where evidence is missing.
 4. References: list every article you relied on using its bracket label, title, and URL. If no provided article supports a claim, explicitly say "no provided source".
 5. Safety: assess whether pursuing the hypothesis could be unethical or unsafe.
 
-Provide your novelty and correctness assessments with supporting references. Include a "References used" section with the cited bracket labels, then conclude with "safety: <safe or unsafe>" and a brief reason."""
+Provide your novelty and correctness assessments with supporting references and a "References used" section. Then conclude with two verdict lines, each on its own line and in exactly this format:
+"novelty: <integer 1-10>" — 1 means a restatement of an existing model, 10 means no comparable prior art exists; base it on the closest-model comparison above.
+"safety: <safe or unsafe>" — with a brief reason."""
 
 # RECONSTRUCTED — not from SM. Methods intent: Decompose hypothesis into core + sub-assumptions, evaluate each independently for plausibility.
 # Recreates: Methods "deep verification review" (Methods pp.26-27); SN8 ReviewHypothesis "break down into core assumptions" one-liner; SN10.6/10.7 examples. No prompt published in SN9.
